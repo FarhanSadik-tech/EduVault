@@ -2,16 +2,18 @@ import { useState } from "react";
 import { UploadCloud, FileText } from "lucide-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/firebase.config";
+import courses from "../../data/courses";
 
 function Upload() {
   const [formData, setFormData] = useState({
-    title: "",
-    department: "",
-    course: "",
-    type: "",
-    description: "",
-    file: null,
-  });
+  title: "",
+  department: "",
+  semester: "",
+  course: "",
+  type: "",
+  description: "",
+  file: null,
+});
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -19,17 +21,38 @@ function Upload() {
   const handleChange = (e) => {
     const { name, value, files } = e.target;
 
-    if (name === "file") {
-      setFormData((prev) => ({
-        ...prev,
-        file: files[0],
-      }));
-    } else {
-      setFormData((prev) => ({
-        ...prev,
-        [name]: value,
-      }));
-    }
+   if (name === "file") {
+
+  setFormData((prev) => ({
+    ...prev,
+    file: files[0],
+  }));
+
+} else if (name === "department") {
+
+  setFormData((prev) => ({
+    ...prev,
+    department: value,
+    semester: "",
+    course: "",
+  }));
+
+} else if (name === "semester") {
+
+  setFormData((prev) => ({
+    ...prev,
+    semester: value,
+    course: "",
+  }));
+
+} else {
+
+  setFormData((prev) => ({
+    ...prev,
+    [name]: value,
+  }));
+
+}
   };
 
   const handleSubmit = async (e) => {
@@ -39,13 +62,14 @@ function Upload() {
     setSuccess("");
 
     const {
-      title,
-      department,
-      course,
-      type,
-      description,
-      file,
-    } = formData;
+  title,
+  department,
+  semester,
+  course,
+  type,
+  description,
+  file,
+} = formData;
 
     if (!title.trim()) {
       return setError("Resource title is required.");
@@ -54,6 +78,9 @@ function Upload() {
     if (!department) {
       return setError("Please select a department.");
     }
+    if (!semester) {
+  return setError("Please select a semester.");
+}
 
     if (!course.trim()) {
       return setError("Course name is required.");
@@ -74,27 +101,27 @@ function Upload() {
     try {
 
   await addDoc(collection(db, "resources"), {
-    title,
-    department,
-    course,
-    type,
-    description,
-
-    fileName: file.name,
-
-    createdAt: serverTimestamp(),
-  });
+  title,
+  department,
+  semester,
+  course,
+  type,
+  description,
+  fileName: file.name,
+  createdAt: serverTimestamp(),
+});
 
   setSuccess("Resource uploaded successfully.");
 
   setFormData({
-    title: "",
-    department: "",
-    course: "",
-    type: "",
-    description: "",
-    file: null,
-  });
+  title: "",
+  department: "",
+  semester: "",
+  course: "",
+  type: "",
+  description: "",
+  file: null,
+});
 
 } catch (error) {
 
@@ -104,6 +131,8 @@ function Upload() {
 
 }
 };
+const availableCourses =
+  courses[formData.department]?.[formData.semester] || [];
   return (
     <section className="mx-auto max-w-4xl px-6 py-16">
       <div className="rounded-3xl border border-slate-800 bg-slate-900 p-10 shadow-2xl">
@@ -143,47 +172,109 @@ function Upload() {
             />
           </div>
 
-          {/* Department */}
+         {/* Department */}
 
-          <div>
-            <label className="mb-2 block text-slate-300">
-              Department
-            </label>
+<div>
+  <label className="mb-2 block text-slate-300">
+    Department
+  </label>
 
-            <select
-              name="department"
-              value={formData.department}
-              onChange={handleChange}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
-            >
-              <option value="">Select Department</option>
+  <select
+    name="department"
+    value={formData.department}
+    onChange={handleChange}
+    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+  >
+    <option value="">
+      Select Department
+    </option>
 
-              <option value="CSE">CSE</option>
+    <option value="cse">
+      CSE
+    </option>
 
-              <option value="EEE">EEE</option>
+    <option value="eee">
+      EEE
+    </option>
 
-              <option value="BBA">BBA</option>
+    <option value="bba">
+      BBA
+    </option>
 
-              <option value="Civil">Civil</option>
-            </select>
-          </div>
+    <option value="civil">
+      Civil
+    </option>
+
+  </select>
+</div>
+{/* Semester */}
+
+<div>
+
+  <label className="mb-2 block text-slate-300">
+    Semester
+  </label>
+
+  <select
+    name="semester"
+    value={formData.semester}
+    onChange={handleChange}
+    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
+  >
+
+    <option value="">
+      Select Semester
+    </option>
+
+    {Array.from({ length: 12 }, (_, index) => (
+
+      <option
+        key={index + 1}
+        value={`semester-${index + 1}`}
+      >
+        Semester {index + 1}
+      </option>
+
+    ))}
+
+  </select>
+
+</div>
 
           {/* Course */}
 
-          <div>
-            <label className="mb-2 block text-slate-300">
-              Course
-            </label>
+<div>
 
-            <input
-              type="text"
-              name="course"
-              value={formData.course}
-              onChange={handleChange}
-              placeholder="Example: CSE221"
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
-            />
-          </div>
+  <label className="mb-2 block text-slate-300">
+    Course
+  </label>
+
+  <select
+    name="course"
+    value={formData.course}
+    onChange={handleChange}
+    disabled={!formData.department || !formData.semester}
+    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+
+    <option value="">
+      Select Course
+    </option>
+
+    {availableCourses.map((course) => (
+
+      <option
+        key={course.code}
+        value={course.code}
+      >
+        {course.code} - {course.title}
+      </option>
+
+    ))}
+
+  </select>
+
+</div>
 
           {/* Resource Type */}
 

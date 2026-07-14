@@ -23,9 +23,15 @@ function AppRoutes() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/department" element={<Department />} />
-          <Route path="/semester" element={<Semester />} />
-          <Route path="/course" element={<Course />} />
-          <Route path="/coursehub" element={<CourseHub />} />
+          <Route path="/semester/:departmentId" element={<Semester />} />
+          <Route
+  path="/course/:departmentId/:semesterId"
+  element={<Course />}
+/>
+          <Route
+  path="/coursehub/:departmentId/:courseCode"
+  element={<CourseHub />}
+/>
          <Route
   path="/upload"
   element={
