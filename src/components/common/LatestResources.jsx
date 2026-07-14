@@ -1,50 +1,58 @@
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
+import {
+  collection,
+  getDocs,
+  orderBy,
+  query,
+} from "firebase/firestore";
 
-const resources = [
-  {
-    id: 1,
-    type: "📄 Mid Question",
-    course: "CSE221",
-    uploader: "Farhan",
-    rating: 4.8,
-    views: 230,
-    downloads: 120,
-  },
-  {
-    id: 2,
-    type: "📝 Lecture Note",
-    course: "CSE321",
-    uploader: "Ayesha",
-    rating: 4.9,
-    views: 310,
-    downloads: 210,
-  },
-  {
-    id: 3,
-    type: "✅ Solution",
-    course: "CSE315",
-    uploader: "Rahim",
-    rating: 4.7,
-    views: 190,
-    downloads: 140,
-  },
-  {
-    id: 4,
-    type: "🎥 Video Lecture",
-    course: "CSE411",
-    uploader: "Nusrat",
-    rating: 4.9,
-    views: 420,
-    downloads: 180,
-  },
-];
+import { db } from "../../firebase/firebase.config";
+import ResourceCard from "./ResourceCard";
 
 
 
 function LatestResources() {
 
+const [resources, setResources] = useState([]);
+const [loading, setLoading] = useState(true);
 
+useEffect(() => {
+
+  const fetchResources = async () => {
+
+    try {
+
+      const q = query(
+        collection(db, "resources"),
+        orderBy("createdAt", "desc")
+      );
+
+      const snapshot = await getDocs(q);
+
+      const data = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      setResources(data);
+
+    } catch (error) {
+
+      console.error(error);
+
+    } finally {
+
+      setLoading(false);
+
+    }
+
+  };
+
+  fetchResources();
+
+}, []);
   return (
 
     <motion.section
@@ -127,262 +135,46 @@ function LatestResources() {
       "
       >
 
-
-      {
-        resources.map((resource,index)=>(
-
-
-          <motion.div
-
-
-          key={resource.id}
-
-
-          initial={{
-            opacity:0,
-            y:50
-          }}
-
-
-          whileInView={{
-            opacity:1,
-            y:0
-          }}
-
-
-          transition={{
-            duration:0.5,
-            delay:index*0.15
-          }}
-
-
-          whileHover={{
-            y:-12,
-            scale:1.03
-          }}
-
-
-          viewport={{
-            once:true
-          }}
-
-
-          className="
-          card-style
-          group
-          p-7
-          "
-
-          >
-
-
-
-
-
-            {/* Resource Badge */}
-
-
-            <span
-            className="
-            inline-flex
-            rounded-full
-            border
-            border-blue-500/30
-            bg-blue-500/20
-            px-4
-            py-2
-            text-sm
-            font-semibold
-            text-blue-400
-            "
-            >
-              {resource.type}
-            </span>
-
-
-
-
-
-
-
-            {/* Course */}
-
-
-            <h3
-            className="
-            mt-6
-            text-3xl
-            font-bold
-            text-white
-            transition
-            group-hover:text-blue-400
-            "
-            >
-              {resource.course}
-            </h3>
-
-
-
-
-
-            {/* Uploader */}
-
-
-            <p
-            className="
-            mt-2
-            text-slate-400
-            "
-            >
-              👤 Uploaded by {resource.uploader}
-            </p>
-
-
-
-
-
-
-
-
-            {/* Stats */}
-
-
-            <div
-            className="
-            mt-6
-            space-y-3
-            "
-            >
-
-
-
-              <div
-              className="
-              flex
-              justify-between
-              rounded-xl
-              bg-slate-800/60
-              px-4
-              py-3
-              "
-              >
-
-                <span className="text-slate-400">
-                  Rating
-                </span>
-
-
-                <span className="font-semibold text-yellow-400">
-                  ⭐ {resource.rating}
-                </span>
-
-              </div>
-
-
-
-
-
-
-              <div
-              className="
-              flex
-              justify-between
-              rounded-xl
-              bg-slate-800/60
-              px-4
-              py-3
-              "
-              >
-
-                <span className="text-slate-400">
-                  Views
-                </span>
-
-
-                <span className="text-white">
-                  👁 {resource.views}
-                </span>
-
-
-              </div>
-
-
-
-
-
-
-              <div
-              className="
-              flex
-              justify-between
-              rounded-xl
-              bg-slate-800/60
-              px-4
-              py-3
-              "
-              >
-
-                <span className="text-slate-400">
-                  Downloads
-                </span>
-
-
-                <span className="text-white">
-                  ⬇ {resource.downloads}
-                </span>
-
-
-              </div>
-
-
-
-
-            </div>
-
-
-
-
-
-
-
-            {/* Button */}
-
-
-
-            <motion.button
-
-
-            whileHover={{
-              scale:1.05
-            }}
-
-
-            whileTap={{
-              scale:0.95
-            }}
-
-
-            className="
-            primary-btn
-            mt-8
-            w-full
-            "
-
-            >
-
-              Download Resource ↓
-
-            </motion.button>
-
-
-
-
-
-          </motion.div>
-
-
-        ))
-      }
+{loading ? (
+
+  <p className="col-span-full text-center text-slate-400">
+    Loading resources...
+  </p>
+
+) : resources.length === 0 ? (
+
+  <p className="col-span-full text-center text-slate-400">
+    No resources uploaded yet.
+  </p>
+
+) : (
+
+  resources.map((resource) => (
+
+    <motion.div
+      key={resource.id}
+      initial={{
+        opacity: 0,
+        y: 40,
+      }}
+      whileInView={{
+        opacity: 1,
+        y: 0,
+      }}
+      transition={{
+        duration: 0.4,
+      }}
+      viewport={{
+        once: true,
+      }}
+    >
+      <ResourceCard resource={resource} />
+    </motion.div>
+
+  ))
+
+)}
+      
 
 
 

@@ -1,7 +1,7 @@
+import ProtectedRoute from "../components/protected/ProtectedRoute";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout";
-
 import Home from "../pages/Home";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
@@ -26,10 +26,31 @@ function AppRoutes() {
           <Route path="/semester" element={<Semester />} />
           <Route path="/course" element={<Course />} />
           <Route path="/coursehub" element={<CourseHub />} />
-          <Route path="/upload" element={<Upload />} />
+         <Route
+  path="/upload"
+  element={
+    <ProtectedRoute>
+      <Upload />
+    </ProtectedRoute>
+  }
+/>
           <Route path="/discussion" element={<Discussion />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route
+  path="/profile"
+  element={
+    <ProtectedRoute>
+      <Profile />
+    </ProtectedRoute>
+  }
+/>
+          <Route
+  path="/admin"
+  element={
+    <ProtectedRoute>
+      <Admin />
+    </ProtectedRoute>
+  }
+/>
         </Route>
       </Routes>
     </BrowserRouter>

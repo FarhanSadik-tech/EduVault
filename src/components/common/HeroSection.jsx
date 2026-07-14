@@ -234,65 +234,62 @@ function HeroSection() {
 
 
 
-          {/* Search */}
+        {/* Search */}
 
+<div
+  className="
+    relative
+    mt-10
+    flex
+    overflow-hidden
+    rounded-2xl
+    border
+    border-slate-700
+    bg-slate-900
+    shadow-xl
+  "
+>
+  {/* Search Icon */}
 
-          <div
-          className="
-          mt-10
-          flex
-          overflow-hidden
-          rounded-2xl
-          border
-          border-slate-700
-          bg-slate-900
-          shadow-xl
-          "
-          >
+  <Search
+    size={20}
+    className="
+      absolute
+      left-5
+      top-1/2
+      -translate-y-1/2
+      text-slate-400
+    "
+  />
 
+  {/* Input */}
 
-            <Search
-            size={20}
-            className="ml-5 text-slate-400"
-            />
+  <input
+    type="text"
+    placeholder="Search course, topic or faculty..."
+    className="
+      w-full
+      bg-transparent
+      py-4
+      pl-14
+      pr-4
+      text-white
+      outline-none
+      placeholder:text-slate-400
+    "
+  />
 
+  {/* Search Button */}
 
-            <input
-
-            placeholder="Search course, topic or faculty..."
-
-            className="
-            w-full
-            bg-transparent
-            px-4
-            py-4
-            text-white
-            outline-none
-            placeholder:text-slate-400
-            "
-
-            />
-
-
-            <button
-            className="
-            primary-btn
-            rounded-none
-            "
-            >
-
-              Search
-
-            </button>
-
-
-          </div>
-
-
-
-
-
-
+  <button
+    className="
+      primary-btn
+      rounded-none
+    "
+  >
+    Search
+  </button>
+</div>
 
           {/* CTA Buttons */}
 

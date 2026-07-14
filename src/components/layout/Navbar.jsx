@@ -1,5 +1,8 @@
 import { motion } from "framer-motion";
 import { NavLink } from "react-router-dom";
+import { useContext } from "react";
+import { AuthContext } from "../../context/AuthContext";
+import { User, LogOut } from "lucide-react";
 
 import {
   House,
@@ -12,38 +15,57 @@ import {
 
 
 function Navbar() {
-
+  const { user, logOut } = useContext(AuthContext);
 
   const navItems = [
-    {
-      name:"Home",
-      path:"/",
-      icon:House
-    },
-    {
-      name:"Departments",
-      path:"/department",
-      icon:Building2
-    },
-    {
-      name:"Courses",
-      path:"/course",
-      icon:BookOpen
-    },
-    {
-      name:"Discussion",
-      path:"/discussion",
-      icon:MessageCircle
-    },
-    {
-      name:"Upload",
-      path:"/upload",
-      icon:Upload
-    },
-  ];
+  {
+    name: "Home",
+    path: "/",
+    icon: House,
+  },
+  {
+    name: "Departments",
+    path: "/department",
+    icon: Building2,
+  },
+  {
+    name: "Courses",
+    path: "/course",
+    icon: BookOpen,
+  },
+  {
+    name: "Discussion",
+    path: "/discussion",
+    icon: MessageCircle,
+  },
+];
 
+const menuItems = user
+  ? [
+      ...navItems,
+      {
+        name: "Upload",
+        path: "/upload",
+        icon: Upload,
+      },
+    ]
+  : navItems;
 
+const handleLogout = async () => {
 
+  try {
+
+    await logOut();
+
+    alert("Logged out successfully.");
+
+  } catch (error) {
+
+    console.error(error);
+
+  }
+
+};
 
   return (
 
@@ -158,7 +180,7 @@ function Navbar() {
 
 
         {
-          navItems.map((item)=>(
+          menuItems.map((item)=>(
 
 
             <NavLink
@@ -245,107 +267,154 @@ function Navbar() {
 
         {/* Buttons */}
 
+<div
+  className="
+  hidden
+  items-center
+  gap-4
+  md:flex
+  "
+>
 
+  {!user ? (
+
+    <>
+
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <NavLink
+          to="/login"
+          className="
+          secondary-btn
+          px-5
+          py-2
+          "
+        >
+          Login
+        </NavLink>
+      </motion.div>
+
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
+        <NavLink
+          to="/register"
+          className="
+          primary-btn
+          px-5
+          py-2
+          "
+        >
+          Register
+        </NavLink>
+      </motion.div>
+
+    </>
+
+  ) : (
+
+    <div
+      className="
+      flex
+      items-center
+      gap-4
+      "
+    >
+
+      {/* User Info */}
+
+      <div
+        className="
+        flex
+        items-center
+        gap-3
+        rounded-xl
+        border
+        border-slate-800
+        bg-slate-900
+        px-4
+        py-2
+        "
+      >
 
         <div
-        className="
-        hidden
-        items-center
-        gap-4
-        md:flex
-        "
+          className="
+          flex
+          h-10
+          w-10
+          items-center
+          justify-center
+          rounded-full
+          bg-blue-600
+          text-lg
+          font-bold
+          text-white
+          "
         >
+          {(user.displayName?.charAt(0) || user.email?.charAt(0) || "U").toUpperCase()}
+        </div>
 
+        <div>
 
+          <p className="text-xs text-slate-400">
+            Welcome
+          </p>
 
-          <motion.div
-
-          whileHover={{
-            scale:1.05
-          }}
-
-          whileTap={{
-            scale:0.95
-          }}
-
-          >
-
-            <NavLink
-
-            to="/login"
-
-            className="
-            secondary-btn
-            px-5
-            py-2
-            "
-
-            >
-
-              Login
-
-            </NavLink>
-
-
-          </motion.div>
-
-
-
-
-
-
-
-          <motion.div
-
-          whileHover={{
-            scale:1.05
-          }}
-
-          whileTap={{
-            scale:0.95
-          }}
-
-          >
-
-
-            <NavLink
-
-            to="/register"
-
-            className="
-            primary-btn
-            px-5
-            py-2
-            "
-
-            >
-
-              Register
-
-            </NavLink>
-
-
-          </motion.div>
-
-
-
+          <p className="text-sm font-semibold text-white">
+            {user.displayName || "EduVault User"}
+          </p>
 
         </div>
 
-
-
-
-
-
       </div>
 
+      {/* Logout */}
 
-    </motion.header>
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+      >
 
+        <button
+          onClick={handleLogout}
+          className="
+          flex
+          items-center
+          gap-2
+          rounded-xl
+          bg-red-600
+          px-5
+          py-2
+          font-semibold
+          text-white
+          transition
+          hover:bg-red-700
+          "
+        >
 
-  );
+          <LogOut size={18} />
+
+          Logout
+
+        </button>
+
+      </motion.div>
+
+    </div>
+
+  )}
+
+</div>
+
+</div>
+
+</motion.header>
+
+);
 
 }
-
 
 export default Navbar;
