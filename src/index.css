@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+
+/* =========================
+   Global Theme
+========================= */
+
+body {
+  background-color: #020617;
+  color: white;
+  font-family: Inter, system-ui, sans-serif;
+  scroll-behavior: smooth;
+}
+
+
+/* =========================
+   Smooth Rendering
+========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+
+html {
+  scroll-behavior: smooth;
+}
+
+
+
+/* =========================
+   Reusable Buttons
+========================= */
+
+@layer components {
+
+
+  .primary-btn {
+
+    @apply
+    rounded-xl
+    bg-gradient-to-r
+    from-blue-600
+    to-indigo-600
+    px-6
+    py-3
+    font-semibold
+    text-white
+    shadow-lg
+    transition-all
+    duration-300
+    hover:scale-105
+    hover:shadow-blue-500/40
+    active:scale-95;
+
+  }
+
+
+
+  .secondary-btn {
+
+    @apply
+    rounded-xl
+    border
+    border-slate-700
+    px-6
+    py-3
+    font-semibold
+    text-white
+    transition-all
+    duration-300
+    hover:scale-105
+    hover:border-blue-500
+    hover:bg-blue-500/10
+    active:scale-95;
+
+  }
+
+
+
+  .card-style {
+
+    @apply
+    rounded-3xl
+    border
+    border-slate-800
+    bg-slate-900/80
+    backdrop-blur
+    transition-all
+    duration-300
+    hover:-translate-y-3
+    hover:scale-[1.03]
+    hover:border-blue-500
+    hover:shadow-2xl
+    hover:shadow-blue-500/20;
+
+  }
+
+
+
+}
+
+
+
+/* =========================
+   Custom Scrollbar
+========================= */
+
+
+::-webkit-scrollbar {
+
+  width: 8px;
+
+}
+
+
+::-webkit-scrollbar-track {
+
+  background: #020617;
+
+}
+
+
+::-webkit-scrollbar-thumb {
+
+  background: #2563eb;
+  border-radius: 10px;
+
+}
+
+
+::-webkit-scrollbar-thumb:hover {
+
+  background: #1d4ed8;
+
+}
