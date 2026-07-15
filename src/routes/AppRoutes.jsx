@@ -13,6 +13,7 @@ import Upload from "../pages/Upload";
 import Discussion from "../pages/Discussion";
 import Profile from "../pages/Profile";
 import Admin from "../pages/Admin";
+import SemesterCourses from "../pages/SemesterCourses";
 
 function AppRoutes() {
   return (
@@ -24,9 +25,11 @@ function AppRoutes() {
           <Route path="/register" element={<Register />} />
           <Route path="/department" element={<Department />} />
           <Route path="/semester/:departmentId" element={<Semester />} />
+          <Route path="/course" element={<Course />} />
+          
           <Route
   path="/course/:departmentId/:semesterId"
-  element={<Course />}
+  element={<SemesterCourses />}
 />
           <Route
   path="/coursehub/:departmentId/:courseCode"

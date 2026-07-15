@@ -12,23 +12,16 @@ function Upload() {
   course: "",
   type: "",
   description: "",
-  file: null,
+  driveLink: "",
 });
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
   const handleChange = (e) => {
-    const { name, value, files } = e.target;
+    const { name, value } = e.target;
 
-   if (name === "file") {
-
-  setFormData((prev) => ({
-    ...prev,
-    file: files[0],
-  }));
-
-} else if (name === "department") {
+  if (name === "department") {
 
   setFormData((prev) => ({
     ...prev,
@@ -62,13 +55,21 @@ function Upload() {
     setSuccess("");
 
     const {
-  title,
-  department,
-  semester,
-  course,
-  type,
-  description,
-  file,
+
+title,
+
+department,
+
+semester,
+
+course,
+
+type,
+
+description,
+
+driveLink,
+
 } = formData;
 
     if (!title.trim()) {
@@ -94,9 +95,9 @@ function Upload() {
       return setError("Description is required.");
     }
 
-    if (!file) {
-      return setError("Please choose a file.");
-    }
+    if (!driveLink.trim()) {
+  return setError("Please enter Google Drive link.");
+}
 
     try {
 
@@ -107,7 +108,8 @@ function Upload() {
   course,
   type,
   description,
-  fileName: file.name,
+  fileName: "Google Drive File",
+  driveLink,
   createdAt: serverTimestamp(),
 });
 
@@ -320,28 +322,25 @@ const availableCourses =
             />
           </div>
 
-          {/* File */}
+        
+          {/* Google Drive Link */}
 
-          <div>
-            <label className="mb-2 block text-slate-300">
-              Upload File
-            </label>
+<div>
 
-            <input
-              type="file"
-              name="file"
-              accept=".pdf,.doc,.docx,.ppt,.pptx"
-              onChange={handleChange}
-              className="w-full rounded-xl border border-dashed border-slate-700 bg-slate-950 px-4 py-3 text-slate-300"
-            />
+  <label className="mb-2 block text-slate-300">
+    Google Drive Link
+  </label>
 
-            {formData.file && (
-              <div className="mt-3 flex items-center gap-2 text-blue-400">
-                <FileText size={18} />
-                <span>{formData.file.name}</span>
-              </div>
-            )}
-          </div>
+  <input
+    type="url"
+    name="driveLink"
+    value={formData.driveLink}
+    onChange={handleChange}
+    placeholder="Paste Google Drive Share Link"
+    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none transition focus:border-blue-500"
+  />
+
+</div>
 
           {/* Error */}
 

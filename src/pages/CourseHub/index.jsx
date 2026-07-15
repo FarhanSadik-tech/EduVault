@@ -201,19 +201,25 @@ function CourseHub() {
                 {resource.fileName}
               </p>
 
-              <button
+             <button
+  onClick={() => {
 
-                onClick={handleDownload}
+    if (!resource.driveLink) {
 
-                className="primary-btn mt-8 flex w-full items-center justify-center gap-2"
+      alert("Download link not available.");
 
-              >
+      return;
 
-                <Download size={18} />
+    }
 
-                Download
+    window.open(resource.driveLink, "_blank");
 
-              </button>
+  }}
+  className="primary-btn mt-8 flex w-full items-center justify-center gap-2"
+>
+  <Download size={18} />
+  Download
+</button>
 
             </motion.div>
 
