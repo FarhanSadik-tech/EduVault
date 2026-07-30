@@ -457,7 +457,7 @@ function Upload() {
 
   <label className="mb-2 block text-slate-300">
 
-    Google Drive Link ( Please read the Note carefully before upload)
+    Google Drive Link ( Please read the Note carefully before Upload)
 
   </label>
 
