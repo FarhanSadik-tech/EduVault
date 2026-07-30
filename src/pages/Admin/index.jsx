@@ -6,12 +6,12 @@ import useAuth from "../../hooks/useAuth";
 
 import {
   collection,
-  getDocs,
   doc,
   deleteDoc,
   addDoc,
+  updateDoc,
   serverTimestamp,
-  getCountFromServer,
+  onSnapshot,
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase.config";
@@ -32,6 +32,7 @@ import {
   CheckCircle2,
   BellRing,
   Send,
+  MessageCircle,
 } from "lucide-react";
 
 function Admin() {
@@ -54,7 +55,7 @@ function Admin() {
 
   const [activeTab, setActiveTab] = useState("analytics");
 
-  // Step 4: Notice Input States
+  // Notice Input States
   const [noticeTitle, setNoticeTitle] = useState("");
 
   const [noticeMessage, setNoticeMessage] = useState("");
@@ -67,113 +68,93 @@ function Admin() {
   // User Search State
   const [userSearchQuery, setUserSearchQuery] = useState("");
 
-  // Fetch all data
-  const fetchAdminData = async () => {
+  // 1. Setup Real-time Listeners for Live Admin Data Sync
+  useEffect(() => {
 
-    try {
+    setFetchingData(true);
 
-      // Fetch Resources
-      const resourcesSnapshot = await getDocs(collection(db, "resources"));
+    // Real-time Resources
+    const unsubResources = onSnapshot(collection(db, "resources"), (snapshot) => {
 
-      const resourceList = resourcesSnapshot.docs.map((itemDoc) => {
+      const list = snapshot.docs.map((d) => {
 
-        return {
-
-          id: itemDoc.id,
-
-          ...itemDoc.data(),
-
-        };
+        return { id: d.id, ...d.data() };
 
       });
 
-      setResources(resourceList);
+      setResources(list);
 
-      // Fetch Discussions
-      const discussionsSnapshot = await getDocs(collection(db, "discussions"));
+    });
 
-      const discussionList = discussionsSnapshot.docs.map((itemDoc) => {
+    // Real-time Discussions
+    const unsubDiscussions = onSnapshot(collection(db, "discussions"), (snapshot) => {
 
-        return {
+      const list = snapshot.docs.map((d) => {
 
-          id: itemDoc.id,
-
-          ...itemDoc.data(),
-
-        };
+        return { id: d.id, ...d.data() };
 
       });
 
-      setDiscussions(discussionList);
-
-      // Fetch Users List
-      const usersSnapshot = await getDocs(collection(db, "users"));
-
-      const fetchedUsers = usersSnapshot.docs.map((uDoc) => {
-
-        return {
-
-          id: uDoc.id,
-
-          ...uDoc.data(),
-
-        };
-
-      });
-
-      setUserList(fetchedUsers);
-
-      setTotalUsers(fetchedUsers.length);
-
-      // Fetch Reports List
-      const reportsSnapshot = await getDocs(collection(db, "reports"));
-
-      const fetchedReports = reportsSnapshot.docs.map((rDoc) => {
-
-        return {
-
-          id: rDoc.id,
-
-          ...rDoc.data(),
-
-        };
-
-      });
-
-      setReportsList(fetchedReports);
-
-      // Step 4: Fetch Notices List
-      const noticesSnapshot = await getDocs(collection(db, "notices"));
-
-      const fetchedNotices = noticesSnapshot.docs.map((nDoc) => {
-
-        return {
-
-          id: nDoc.id,
-
-          ...nDoc.data(),
-
-        };
-
-      });
-
-      setNoticesList(fetchedNotices);
-
-    } catch (error) {
-
-      console.error("Error fetching admin panel data:", error);
-
-    } finally {
+      setDiscussions(list);
 
       setFetchingData(false);
 
-    }
+    });
 
-  };
+    // Real-time Users
+    const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
 
-  useEffect(() => {
+      const list = snapshot.docs.map((d) => {
 
-    fetchAdminData();
+        return { id: d.id, ...d.data() };
+
+      });
+
+      setUserList(list);
+
+      setTotalUsers(list.length);
+
+    });
+
+    // Real-time Reports
+    const unsubReports = onSnapshot(collection(db, "reports"), (snapshot) => {
+
+      const list = snapshot.docs.map((d) => {
+
+        return { id: d.id, ...d.data() };
+
+      });
+
+      setReportsList(list);
+
+    });
+
+    // Real-time Notices
+    const unsubNotices = onSnapshot(collection(db, "notices"), (snapshot) => {
+
+      const list = snapshot.docs.map((d) => {
+
+        return { id: d.id, ...d.data() };
+
+      });
+
+      setNoticesList(list);
+
+    });
+
+    return () => {
+
+      unsubResources();
+
+      unsubDiscussions();
+
+      unsubUsers();
+
+      unsubReports();
+
+      unsubNotices();
+
+    };
 
   }, []);
 
@@ -209,7 +190,7 @@ function Admin() {
 
   });
 
-  // Step 4 Admin Action: Create Notice
+  // Admin Action: Create Notice
   const handleCreateNotice = async (e) => {
 
     e.preventDefault();
@@ -220,7 +201,7 @@ function Admin() {
 
     try {
 
-      const docRef = await addDoc(collection(db, "notices"), {
+      await addDoc(collection(db, "notices"), {
 
         title: noticeTitle.trim(),
 
@@ -229,28 +210,6 @@ function Admin() {
         postedBy: user.email,
 
         createdAt: serverTimestamp(),
-
-      });
-
-      setNoticesList((prev) => {
-
-        return [
-
-          {
-
-            id: docRef.id,
-
-            title: noticeTitle.trim(),
-
-            message: noticeMessage.trim(),
-
-            postedBy: user.email,
-
-          },
-
-          ...prev,
-
-        ];
 
       });
 
@@ -272,22 +231,12 @@ function Admin() {
 
   };
 
-  // Step 4 Admin Action: Delete Notice
+  // Admin Action: Delete Notice
   const handleDeleteNotice = async (noticeId) => {
 
     try {
 
       await deleteDoc(doc(db, "notices", noticeId));
-
-      setNoticesList((prev) => {
-
-        return prev.filter((item) => {
-
-          return item.id !== noticeId;
-
-        });
-
-      });
 
     } catch (error) {
 
@@ -304,16 +253,6 @@ function Admin() {
 
       await deleteDoc(doc(db, "reports", reportId));
 
-      setReportsList((prev) => {
-
-        return prev.filter((item) => {
-
-          return item.id !== reportId;
-
-        });
-
-      });
-
     } catch (error) {
 
       console.error("Error dismissing report:", error);
@@ -326,9 +265,7 @@ function Admin() {
   const handleDeleteResource = async (resourceId) => {
 
     const confirmDelete = window.confirm(
-
       "Admin Action: Are you sure you want to delete this resource?"
-
     );
 
     if (!confirmDelete) return;
@@ -336,16 +273,6 @@ function Admin() {
     try {
 
       await deleteDoc(doc(db, "resources", resourceId));
-
-      setResources((prev) => {
-
-        return prev.filter((item) => {
-
-          return item.id !== resourceId;
-
-        });
-
-      });
 
       setSelectedResources((prev) => {
 
@@ -371,9 +298,7 @@ function Admin() {
     if (selectedResources.length === 0) return;
 
     const confirmDelete = window.confirm(
-
       `Are you sure you want to delete ${selectedResources.length} selected resources?`
-
     );
 
     if (!confirmDelete) return;
@@ -385,16 +310,6 @@ function Admin() {
         await deleteDoc(doc(db, "resources", id));
 
       }
-
-      setResources((prev) => {
-
-        return prev.filter((item) => {
-
-          return !selectedResources.includes(item.id);
-
-        });
-
-      });
 
       setSelectedResources([]);
 
@@ -448,13 +363,11 @@ function Admin() {
 
   };
 
-  // Admin Action: Delete Single Discussion
+  // Admin Action: Delete Single Discussion Post
   const handleDeleteDiscussion = async (discussionId) => {
 
     const confirmDelete = window.confirm(
-
       "Admin Action: Are you sure you want to delete this discussion post?"
-
     );
 
     if (!confirmDelete) return;
@@ -463,19 +376,46 @@ function Admin() {
 
       await deleteDoc(doc(db, "discussions", discussionId));
 
-      setDiscussions((prev) => {
-
-        return prev.filter((item) => {
-
-          return item.id !== discussionId;
-
-        });
-
-      });
-
     } catch (error) {
 
       console.error("Error deleting discussion:", error);
+
+    }
+
+  };
+
+  // 🔥 Admin Action: Delete Specific Comment inside a Discussion Post
+  const handleDeleteCommentByAdmin = async (discussionItem, commentToDeleteId) => {
+
+    const confirmDelete = window.confirm(
+      "Admin Action: Are you sure you want to delete this comment?"
+    );
+
+    if (!confirmDelete) return;
+
+    try {
+
+      const postRef = doc(db, "discussions", discussionItem.id);
+
+      // Filter out the comment to be deleted
+      const updatedComments = (discussionItem.comments || []).filter((c) => {
+
+        return c.id !== commentToDeleteId;
+
+      });
+
+      // Update document in Firestore
+      await updateDoc(postRef, {
+
+        comments: updatedComments,
+
+      });
+
+      alert("Comment deleted successfully by Admin!");
+
+    } catch (error) {
+
+      console.error("Error deleting comment by Admin:", error);
 
     }
 
@@ -780,7 +720,7 @@ function Admin() {
 
       </div>
 
-      {/* Tab 1: Department-wise Resource Distribution */}
+      {/* Tab 1: Analytics */}
       {activeTab === "analytics" && (
 
         <div className="mt-6 card-style p-8">
@@ -845,12 +785,11 @@ function Admin() {
 
       )}
 
-      {/* Tab 2: Global Notice Broadcast System */}
+      {/* Tab 2: Notice */}
       {activeTab === "notice" && (
 
         <div className="mt-6 grid gap-8 md:grid-cols-2">
 
-          {/* Broadcast Form */}
           <div className="card-style p-6">
 
             <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-4">
@@ -917,7 +856,6 @@ function Admin() {
 
           </div>
 
-          {/* Active Notices List */}
           <div className="card-style p-6">
 
             <h3 className="text-lg font-bold text-white mb-4">Active Broadcasted Notices</h3>
@@ -977,7 +915,7 @@ function Admin() {
 
       )}
 
-      {/* Tab 3: Flagged Reports Management */}
+      {/* Tab 3: Reports */}
       {activeTab === "reports" && (
 
         <div className="mt-6">
@@ -1070,12 +1008,11 @@ function Admin() {
 
       )}
 
-      {/* Tab 4: Registered User Directory Table */}
+      {/* Tab 4: Users */}
       {activeTab === "users" && (
 
         <div className="mt-6">
 
-          {/* Search Box */}
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 max-w-md">
 
             <Search size={18} className="text-slate-400" />
@@ -1183,12 +1120,11 @@ function Admin() {
 
       )}
 
-      {/* Tab 5: Manage Resources with Bulk Delete */}
+      {/* Tab 5: Manage Resources */}
       {activeTab === "resources" && (
 
         <div className="mt-6">
 
-          {/* Bulk Delete Bar */}
           {selectedResources.length > 0 && (
 
             <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-white">
@@ -1379,7 +1315,7 @@ function Admin() {
 
       )}
 
-      {/* Tab 6: Manage Discussions */}
+      {/* 🔥 Tab 6: Manage Discussions & Comments with Admin Delete Controls */}
       {activeTab === "discussions" && (
 
         <div className="mt-6">
@@ -1394,62 +1330,152 @@ function Admin() {
 
           ) : (
 
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6">
 
               {discussions.map((item) => {
+
+                const commentsList = item.comments || [];
 
                 return (
 
                   <div
                     key={item.id}
-                    className="card-style flex items-start justify-between gap-4 border border-slate-800 p-6"
+                    className="card-style flex flex-col justify-between gap-4 border border-slate-800 p-6"
                   >
 
-                    <div>
+                    <div className="flex items-start justify-between gap-4">
 
-                      <div className="flex items-center gap-2">
+                      <div>
 
-                        <span className="rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400">
+                        <div className="flex items-center gap-2">
 
-                          {item.category}
+                          <span className="rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400">
 
-                        </span>
+                            {item.courseCode || item.category || "GENERAL"}
 
-                        <span className="text-xs text-slate-400">
+                          </span>
 
-                          By {item.authorName} ({item.authorEmail})
+                          <span className="text-xs text-slate-400">
 
-                        </span>
+                            By {item.authorName} ({item.authorEmail})
+
+                          </span>
+
+                        </div>
+
+                        <h3 className="mt-2 text-lg font-bold text-white">
+
+                          {item.topic || item.title}
+
+                        </h3>
+
+                        <p className="mt-1 text-sm text-slate-300 whitespace-pre-line">
+
+                          {item.content}
+
+                        </p>
 
                       </div>
 
-                      <h3 className="mt-2 text-lg font-bold text-white">
+                      {/* Admin Delete Discussion Post Button */}
+                      <button
+                        onClick={() => {
 
-                        {item.title}
+                          return handleDeleteDiscussion(item.id);
 
-                      </h3>
+                        }}
+                        className="rounded-lg bg-red-600/10 p-2.5 text-red-400 transition-colors hover:bg-red-600 hover:text-white"
+                        title="Delete Entire Discussion Post"
+                      >
 
-                      <p className="mt-1 text-sm text-slate-300">
+                        <Trash2 size={18} />
 
-                        {item.content}
-
-                      </p>
+                      </button>
 
                     </div>
 
-                    <button
-                      onClick={() => {
+                    {/* 🔥 Comments List Section inside Discussion */}
+                    <div className="mt-4 border-t border-slate-800/80 pt-4">
 
-                        return handleDeleteDiscussion(item.id);
+                      <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
 
-                      }}
-                      className="rounded-lg bg-red-600/10 p-2.5 text-red-400 transition-colors hover:bg-red-600 hover:text-white"
-                      title="Delete Discussion Post"
-                    >
+                        <MessageCircle size={14} className="text-blue-400" />
 
-                      <Trash2 size={18} />
+                        Comments ({commentsList.length})
 
-                    </button>
+                      </h4>
+
+                      {commentsList.length === 0 ? (
+
+                        <p className="text-xs text-slate-500 italic">No comments posted on this discussion.</p>
+
+                      ) : (
+
+                        <div className="space-y-2">
+
+                          {commentsList.map((comment) => {
+
+                            return (
+
+                              <div
+                                key={comment.id}
+                                className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-900/90 p-3 text-xs"
+                              >
+
+                                <div>
+
+                                  <div className="flex items-center gap-2">
+
+                                    <span className="font-semibold text-blue-400">
+
+                                      {comment.authorName}
+
+                                    </span>
+
+                                    <span className="text-[10px] text-slate-500">
+
+                                      ({comment.authorEmail})
+
+                                    </span>
+
+                                  </div>
+
+                                  <p className="mt-1 text-slate-200">
+
+                                    {comment.text}
+
+                                  </p>
+
+                                </div>
+
+                                {/* Delete Comment Action Button */}
+                                <button
+                                  onClick={() => {
+
+                                    return handleDeleteCommentByAdmin(item, comment.id);
+
+                                  }}
+                                  className="flex items-center gap-1 rounded-lg bg-red-600/10 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 transition-colors hover:bg-red-600 hover:text-white ml-4 shrink-0"
+                                  title="Delete this comment"
+                                >
+
+                                  <Trash2 size={13} />
+
+                                  Delete Comment
+
+                                </button>
+
+                              </div>
+
+                            );
+
+                          })}
+
+                        </div>
+
+                      )}
+
+                    </div>
 
                   </div>
 

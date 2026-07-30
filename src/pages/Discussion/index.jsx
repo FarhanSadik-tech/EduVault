@@ -6,20 +6,32 @@ import {
   collection,
   onSnapshot,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
   serverTimestamp,
   query,
   orderBy,
+  arrayUnion,
+  arrayRemove,
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase.config";
 
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 import {
   MessageSquare,
   Search,
   Send,
   User,
+  Heart,
+  MessageCircle,
+  Trash2,
+  Edit3,
+  X,
+  Check,
+  CornerDownRight,
 } from "lucide-react";
 
 const allSemestersList = [
@@ -51,7 +63,7 @@ function Discussion() {
 
   const [discussions, setDiscussions] = useState([]);
 
-  // Discussion Form States
+  // Discussion Post States
   const [selectedCourseForDiscussion, setSelectedCourseForDiscussion] = useState("GENERAL");
 
   const [newTopic, setNewTopic] = useState("");
@@ -60,7 +72,23 @@ function Discussion() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // 1. Fetch Uploaded Course Codes for Selector Dropdown
+  // Edit Discussion Post State
+  const [editingPostId, setEditingPostId] = useState(null);
+
+  const [editTopic, setEditTopic] = useState("");
+
+  const [editContent, setEditContent] = useState("");
+
+  // Comment & Reply Input States
+  const [activeCommentPostId, setActiveCommentPostId] = useState(null);
+
+  const [commentText, setCommentText] = useState({});
+
+  const [replyText, setReplyText] = useState({});
+
+  const [activeReplyId, setActiveReplyId] = useState(null);
+
+  // 1. Fetch Uploaded Course Codes for Dropdown
   useEffect(() => {
 
     const resourcesRef = collection(db, "resources");
@@ -164,7 +192,7 @@ function Discussion() {
 
   }, [selectedDept, selectedSemester]);
 
-  // Handle Post Discussion
+  // Handle Post New Discussion
   const handlePostDiscussion = async (e) => {
 
     e.preventDefault();
@@ -205,6 +233,12 @@ function Discussion() {
 
         authorEmail: user.email,
 
+        authorUid: user.uid,
+
+        likes: [],
+
+        comments: [],
+
         createdAt: serverTimestamp(),
 
       };
@@ -229,11 +263,264 @@ function Discussion() {
 
   };
 
+  // Handle Edit Post
+  const handleStartEdit = (disc) => {
+
+    setEditingPostId(disc.id);
+
+    setEditTopic(disc.topic);
+
+    setEditContent(disc.content);
+
+  };
+
+  const handleSaveEdit = async (discId) => {
+
+    if (!editTopic.trim() || !editContent.trim()) {
+
+      alert("Title and content cannot be empty.");
+
+      return;
+
+    }
+
+    try {
+
+      const postRef = doc(db, "discussions", discId);
+
+      await updateDoc(postRef, {
+
+        topic: editTopic,
+
+        content: editContent,
+
+        updatedAt: serverTimestamp(),
+
+      });
+
+      setEditingPostId(null);
+
+      alert("Discussion updated successfully!");
+
+    } catch (error) {
+
+      console.error("Error updating discussion:", error);
+
+    }
+
+  };
+
+  // Handle Delete Post
+  const handleDeletePost = async (discId) => {
+
+    if (window.confirm("Are you sure you want to delete this discussion post?")) {
+
+      try {
+
+        await deleteDoc(doc(db, "discussions", discId));
+
+        alert("Post deleted successfully.");
+
+      } catch (error) {
+
+        console.error("Error deleting post:", error);
+
+      }
+
+    }
+
+  };
+
+  // Handle Like Toggle
+  const handleToggleLike = async (disc) => {
+
+    if (!user) {
+
+      alert("Please login to like posts.");
+
+      return;
+
+    }
+
+    const postRef = doc(db, "discussions", disc.id);
+
+    const likesArray = disc.likes || [];
+
+    const isLiked = likesArray.includes(user.uid);
+
+    try {
+
+      if (isLiked) {
+
+        await updateDoc(postRef, {
+
+          likes: arrayRemove(user.uid),
+
+        });
+
+      } else {
+
+        await updateDoc(postRef, {
+
+          likes: arrayUnion(user.uid),
+
+        });
+
+      }
+
+    } catch (error) {
+
+      console.error("Error toggling like:", error);
+
+    }
+
+  };
+
+  // Handle Add Comment
+  const handleAddComment = async (discId) => {
+
+    if (!user) {
+
+      alert("Please login to comment.");
+
+      return;
+
+    }
+
+    const text = commentText[discId];
+
+    if (!text || !text.trim()) {
+
+      return;
+
+    }
+
+    const newComment = {
+
+      id: `comment_${Date.now()}`,
+
+      authorName: user.displayName || user.email.split("@")[0],
+
+      authorEmail: user.email,
+
+      authorUid: user.uid,
+
+      text: text.trim(),
+
+      createdAt: new Date().toISOString(),
+
+      replies: [],
+
+    };
+
+    try {
+
+      const postRef = doc(db, "discussions", discId);
+
+      await updateDoc(postRef, {
+
+        comments: arrayUnion(newComment),
+
+      });
+
+      setCommentText((prev) => {
+
+        return { ...prev, [discId]: "" };
+
+      });
+
+    } catch (error) {
+
+      console.error("Error adding comment:", error);
+
+    }
+
+  };
+
+  // Handle Add Reply to Comment
+  const handleAddReply = async (disc, commentId) => {
+
+    if (!user) {
+
+      alert("Please login to reply.");
+
+      return;
+
+    }
+
+    const text = replyText[commentId];
+
+    if (!text || !text.trim()) {
+
+      return;
+
+    }
+
+    const newReply = {
+
+      id: `reply_${Date.now()}`,
+
+      authorName: user.displayName || user.email.split("@")[0],
+
+      authorEmail: user.email,
+
+      authorUid: user.uid,
+
+      text: text.trim(),
+
+      createdAt: new Date().toISOString(),
+
+    };
+
+    const updatedComments = (disc.comments || []).map((c) => {
+
+      if (c.id === commentId) {
+
+        return {
+
+          ...c,
+
+          replies: [...(c.replies || []), newReply],
+
+        };
+
+      }
+
+      return c;
+
+    });
+
+    try {
+
+      const postRef = doc(db, "discussions", disc.id);
+
+      await updateDoc(postRef, {
+
+        comments: updatedComments,
+
+      });
+
+      setReplyText((prev) => {
+
+        return { ...prev, [commentId]: "" };
+
+      });
+
+      setActiveReplyId(null);
+
+    } catch (error) {
+
+      console.error("Error adding reply:", error);
+
+    }
+
+  };
+
   return (
 
     <section className="mx-auto max-w-7xl px-6 py-16">
 
-      {/* Page Title Header */}
+      {/* Header */}
       <div className="text-center">
 
         <MessageSquare
@@ -249,7 +536,7 @@ function Discussion() {
 
         <p className="mt-3 text-slate-400 max-w-xl mx-auto text-sm">
 
-          Select your department & semester to join specific course discussions!
+          Select your department & semester to join discussions, share thoughts, like and reply to your peers!
 
         </p>
 
@@ -361,7 +648,7 @@ function Discussion() {
 
         </div>
 
-        {/* Post New Topic Form */}
+        {/* Create Discussion Box */}
         <div className="rounded-3xl border border-slate-800 bg-slate-900 p-8 mb-12 shadow-xl">
 
           <h4 className="text-lg font-bold text-white mb-6">
@@ -477,7 +764,7 @@ function Discussion() {
 
         </div>
 
-        {/* Discussion Feed */}
+        {/* Discussion Posts Feed */}
         <div className="space-y-6">
 
           {discussions.length === 0 ? (
@@ -492,36 +779,49 @@ function Discussion() {
 
             discussions.map((disc) => {
 
+              const isOwner = user && (disc.authorUid === user.uid || disc.authorEmail === user.email);
+
+              const isLiked = user && (disc.likes || []).includes(user.uid);
+
+              const commentsList = disc.comments || [];
+
+              const isEditingThis = editingPostId === disc.id;
+
               return (
 
                 <motion.div
                   key={disc.id}
-                  initial={{
-                    opacity: 0,
-                    y: 20,
-                  }}
-                  animate={{
-                    opacity: 1,
-                    y: 0,
-                  }}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
                   className="card-style p-6"
                 >
 
-                  <div className="flex items-center justify-between mb-3 border-b border-slate-800/60 pb-3">
+                  {/* Post Author Header */}
+                  <div className="flex items-center justify-between mb-4 border-b border-slate-800/60 pb-3">
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
 
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-500/20 text-blue-400">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/20 text-blue-400 font-bold">
 
-                        <User size={16} />
+                        {disc.authorName ? disc.authorName.charAt(0).toUpperCase() : <User size={18} />}
 
                       </div>
 
                       <div>
 
-                        <p className="text-sm font-semibold text-white">
+                        <p className="text-sm font-semibold text-white flex items-center gap-2">
 
                           {disc.authorName}
+
+                          {isOwner && (
+
+                            <span className="rounded bg-blue-500/30 px-1.5 py-0.5 text-[10px] text-blue-300 uppercase">
+
+                              You
+
+                            </span>
+
+                          )}
 
                         </p>
 
@@ -535,25 +835,366 @@ function Discussion() {
 
                     </div>
 
-                    <span className="rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-400">
+                    <div className="flex items-center gap-3">
 
-                      {disc.courseCode}
+                      <span className="rounded-full bg-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-400">
 
-                    </span>
+                        {disc.courseCode}
+
+                      </span>
+
+                      {/* Delete / Edit Own Post Action Buttons */}
+                      {isOwner && !isEditingThis && (
+
+                        <div className="flex items-center gap-1 border-l border-slate-800 pl-3">
+
+                          <button
+                            onClick={() => {
+
+                              return handleStartEdit(disc);
+
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-blue-400 transition"
+                            title="Edit Post"
+                          >
+
+                            <Edit3 size={16} />
+
+                          </button>
+
+                          <button
+                            onClick={() => {
+
+                              return handleDeletePost(disc.id);
+
+                            }}
+                            className="p-1.5 text-slate-400 hover:text-red-400 transition"
+                            title="Delete Post"
+                          >
+
+                            <Trash2 size={16} />
+
+                          </button>
+
+                        </div>
+
+                      )}
+
+                    </div>
 
                   </div>
 
-                  <h5 className="text-lg font-bold text-white mb-2">
+                  {/* Post Content OR Edit Mode */}
+                  {isEditingThis ? (
 
-                    {disc.topic}
+                    <div className="space-y-3 my-4 bg-slate-900/90 p-4 rounded-xl border border-blue-500/30">
 
-                  </h5>
+                      <input
+                        type="text"
+                        value={editTopic}
+                        onChange={(e) => {
 
-                  <p className="text-slate-400 text-sm leading-relaxed mb-4">
+                          return setEditTopic(e.target.value);
 
-                    {disc.content}
+                        }}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white text-sm focus:outline-none"
+                      />
 
-                  </p>
+                      <textarea
+                        rows={3}
+                        value={editContent}
+                        onChange={(e) => {
+
+                          return setEditContent(e.target.value);
+
+                        }}
+                        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-white text-sm focus:outline-none resize-none"
+                      ></textarea>
+
+                      <div className="flex items-center gap-2 justify-end">
+
+                        <button
+                          onClick={() => {
+
+                            return setEditingPostId(null);
+
+                          }}
+                          className="flex items-center gap-1 rounded-lg bg-slate-800 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-700"
+                        >
+
+                          <X size={14} /> Cancel
+
+                        </button>
+
+                        <button
+                          onClick={() => {
+
+                            return handleSaveEdit(disc.id);
+
+                          }}
+                          className="flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs text-white hover:bg-blue-500"
+                        >
+
+                          <Check size={14} /> Save Changes
+
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  ) : (
+
+                    <div>
+
+                      <h5 className="text-lg font-bold text-white mb-2">
+
+                        {disc.topic}
+
+                      </h5>
+
+                      <p className="text-slate-300 text-sm leading-relaxed mb-4 whitespace-pre-line">
+
+                        {disc.content}
+
+                      </p>
+
+                    </div>
+
+                  )}
+
+                  {/* Likes and Comments Bar */}
+                  <div className="flex items-center gap-6 pt-3 border-t border-slate-800/80 text-xs text-slate-400">
+
+                    {/* Like Button */}
+                    <button
+                      onClick={() => {
+
+                        return handleToggleLike(disc);
+
+                      }}
+                      className={`flex items-center gap-1.5 transition ${
+                        isLiked ? "text-rose-500 font-bold" : "hover:text-rose-400"
+                      }`}
+                    >
+
+                      <Heart
+                        size={16}
+                        className={isLiked ? "fill-rose-500 text-rose-500" : ""}
+                      />
+
+                      <span>{(disc.likes || []).length} Likes</span>
+
+                    </button>
+
+                    {/* Toggle Comments Button */}
+                    <button
+                      onClick={() => {
+
+                        return setActiveCommentPostId(
+                          activeCommentPostId === disc.id ? null : disc.id
+                        );
+
+                      }}
+                      className="flex items-center gap-1.5 hover:text-blue-400 transition"
+                    >
+
+                      <MessageCircle size={16} />
+
+                      <span>{commentsList.length} Comments</span>
+
+                    </button>
+
+                  </div>
+
+                  {/* Comments and Nested Replies Expandable Section */}
+                  <AnimatePresence>
+
+                    {activeCommentPostId === disc.id && (
+
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="mt-4 pt-4 border-t border-slate-800/60 space-y-4"
+                      >
+
+                        {/* Add Comment Input */}
+                        <div className="flex gap-2">
+
+                          <input
+                            type="text"
+                            placeholder="Write a comment..."
+                            value={commentText[disc.id] || ""}
+                            onChange={(e) => {
+
+                              const val = e.target.value;
+
+                              return setCommentText((prev) => {
+
+                                return { ...prev, [disc.id]: val };
+
+                              });
+
+                            }}
+                            className="flex-1 rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-2 text-xs text-white focus:outline-none focus:border-blue-500"
+                          />
+
+                          <button
+                            onClick={() => {
+
+                              return handleAddComment(disc.id);
+
+                            }}
+                            className="rounded-xl bg-blue-600 px-4 py-2 text-xs text-white font-semibold hover:bg-blue-500 transition"
+                          >
+
+                            Comment
+
+                          </button>
+
+                        </div>
+
+                        {/* Comments List */}
+                        <div className="space-y-3 pt-2">
+
+                          {commentsList.map((c) => {
+
+                            return (
+
+                              <div
+                                key={c.id}
+                                className="rounded-xl bg-slate-900/60 p-3 border border-slate-800/50 space-y-2"
+                              >
+
+                                <div className="flex items-center justify-between">
+
+                                  <p className="text-xs font-semibold text-slate-200">
+
+                                    {c.authorName}
+
+                                  </p>
+
+                                  <span className="text-[10px] text-slate-500">
+
+                                    {c.createdAt ? new Date(c.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+
+                                  </span>
+
+                                </div>
+
+                                <p className="text-xs text-slate-300">
+
+                                  {c.text}
+
+                                </p>
+
+                                {/* Reply Button */}
+                                <div className="pt-1">
+
+                                  <button
+                                    onClick={() => {
+
+                                      return setActiveReplyId(
+                                        activeReplyId === c.id ? null : c.id
+                                      );
+
+                                    }}
+                                    className="text-[11px] text-blue-400 hover:underline flex items-center gap-1"
+                                  >
+
+                                    <CornerDownRight size={12} /> Reply
+
+                                  </button>
+
+                                </div>
+
+                                {/* Replies List */}
+                                {c.replies && c.replies.length > 0 && (
+
+                                  <div className="ml-4 pl-3 border-l-2 border-slate-800 space-y-2 pt-2">
+
+                                    {c.replies.map((r) => {
+
+                                      return (
+
+                                        <div key={r.id} className="bg-slate-950/40 p-2 rounded-lg">
+
+                                          <p className="text-[11px] font-semibold text-blue-300">
+
+                                            {r.authorName}
+
+                                          </p>
+
+                                          <p className="text-xs text-slate-300">
+
+                                            {r.text}
+
+                                          </p>
+
+                                        </div>
+
+                                      );
+
+                                    })}
+
+                                  </div>
+
+                                )}
+
+                                {/* Reply Input Box */}
+                                {activeReplyId === c.id && (
+
+                                  <div className="flex gap-2 ml-4 pt-2">
+
+                                    <input
+                                      type="text"
+                                      placeholder="Write a reply..."
+                                      value={replyText[c.id] || ""}
+                                      onChange={(e) => {
+
+                                        const val = e.target.value;
+
+                                        return setReplyText((prev) => {
+
+                                          return { ...prev, [c.id]: val };
+
+                                        });
+
+                                      }}
+                                      className="flex-1 rounded-lg border border-slate-800 bg-slate-950 px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                                    />
+
+                                    <button
+                                      onClick={() => {
+
+                                        return handleAddReply(disc, c.id);
+
+                                      }}
+                                      className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs text-white font-semibold hover:bg-blue-500"
+                                    >
+
+                                      Reply
+
+                                    </button>
+
+                                  </div>
+
+                                )}
+
+                              </div>
+
+                            );
+
+                          })}
+
+                        </div>
+
+                      </motion.div>
+
+                    )}
+
+                  </AnimatePresence>
 
                 </motion.div>
 
