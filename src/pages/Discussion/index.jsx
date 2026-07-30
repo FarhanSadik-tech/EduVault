@@ -29,8 +29,7 @@ import {
   Trash2,
   MessageSquare,
   Edit3,
-  Check,
-  X,
+  Flag,
 } from "lucide-react";
 
 function Discussion() {
@@ -225,6 +224,53 @@ function Discussion() {
     } finally {
 
       setSubmitting(false);
+
+    }
+
+  };
+
+  // Handle Report Discussion Post to Admin
+  const handleReportPost = async (post) => {
+
+    if (!user) {
+
+      alert("Please login to report content.");
+
+      return;
+
+    }
+
+    const reason = window.prompt(
+
+      `Report post "${post.title}". Reason for reporting:`
+
+    );
+
+    if (!reason || !reason.trim()) return;
+
+    try {
+
+      await addDoc(collection(db, "reports"), {
+
+        targetId: post.id,
+
+        targetTitle: post.title,
+
+        type: "Discussion Post",
+
+        reason: reason.trim(),
+
+        reportedBy: user.email,
+
+        createdAt: serverTimestamp(),
+
+      });
+
+      alert("Thank you! Report submitted to Admin for review.");
+
+    } catch (error) {
+
+      console.error("Error submitting report:", error);
 
     }
 
@@ -804,6 +850,25 @@ function Discussion() {
 
                       </span>
 
+                      {/* Report Button */}
+                      {!isOwner && (
+
+                        <button
+                          onClick={() => {
+
+                            return handleReportPost(item);
+
+                          }}
+                          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-800 hover:text-red-400 transition-colors"
+                          title="Report Post to Admin"
+                        >
+
+                          <Flag size={15} />
+
+                        </button>
+
+                      )}
+
                       {/* Owner Post Controls */}
                       {isOwner && (
 
@@ -886,7 +951,7 @@ function Discussion() {
                         <button
                           type="submit"
                           disabled={updatingPost}
-                          className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-500 transition-colors disabled:opacity-50"
+                          className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-blue-500 disabled:opacity-50"
                         >
 
                           {updatingPost ? "Saving..." : "Save Changes"}
@@ -900,7 +965,7 @@ function Discussion() {
                             return setEditingPostId(null);
 
                           }}
-                          className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+                          className="rounded-lg bg-slate-800 px-4 py-1.5 text-xs font-semibold text-slate-400 transition-colors hover:text-white"
                         >
 
                           Cancel
@@ -962,7 +1027,7 @@ function Discussion() {
                         return handleToggleComments(item.id);
 
                       }}
-                      className="flex items-center gap-1.5 font-medium text-slate-400 hover:text-blue-400 transition-colors"
+                      className="flex items-center gap-1.5 font-medium text-slate-400 transition-colors hover:text-blue-400"
                     >
 
                       <MessageSquare size={16} />
@@ -1075,7 +1140,7 @@ function Discussion() {
                                       return handleDeleteComment(item.id, comment.id);
 
                                     }}
-                                    className="p-1 text-red-400 hover:text-red-300 transition-colors"
+                                    className="p-1 text-red-400 transition-colors hover:text-red-300"
                                     title="Delete Comment"
                                   >
 

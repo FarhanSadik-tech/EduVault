@@ -1,8 +1,12 @@
 import { motion } from "framer-motion";
+
 import { NavLink } from "react-router-dom";
+
 import { useContext } from "react";
+
 import { AuthContext } from "../../context/AuthContext";
-import { User, LogOut } from "lucide-react";
+
+import { LogOut, ShieldAlert } from "lucide-react";
 
 import {
   House,
@@ -15,6 +19,13 @@ import {
 function Navbar() {
 
   const { user, logOut } = useContext(AuthContext);
+
+  // Authorized Admin Emails list
+  const adminEmails = [
+    "xarhan62@gmail.com",
+  ];
+
+  const isAdmin = user && adminEmails.includes(user.email);
 
   const navItems = [
     {
@@ -140,7 +151,7 @@ function Navbar() {
 
         </nav>
 
-        {/* Buttons */}
+        {/* Action Buttons */}
         <div className="hidden items-center gap-4 md:flex">
 
           {!user ? (
@@ -183,15 +194,32 @@ function Navbar() {
 
           ) : (
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
 
-              {/* User Info (Clickable Link to Profile) */}
+              {/* Special Admin Link Button */}
+              {isAdmin && (
+
+                <NavLink
+                  to="/admin"
+                  className="flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-400 transition hover:bg-red-500 hover:text-white"
+                  title="Open Admin Panel"
+                >
+
+                  <ShieldAlert size={16} />
+
+                  <span>Admin Panel</span>
+
+                </NavLink>
+
+              )}
+
+              {/* User Profile Info Link */}
               <NavLink
                 to="/profile"
                 className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 transition hover:border-slate-700 hover:bg-slate-800/80 cursor-pointer"
               >
 
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-lg font-bold text-white overflow-hidden">
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white overflow-hidden">
 
                   {user.photoURL ? (
 
@@ -235,10 +263,10 @@ function Navbar() {
 
                 <button
                   onClick={handleLogout}
-                  className="flex items-center gap-2 rounded-xl bg-red-600 px-5 py-2 font-semibold text-white transition hover:bg-red-700"
+                  className="flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                 >
 
-                  <LogOut size={18} />
+                  <LogOut size={16} />
 
                   Logout
 

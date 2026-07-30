@@ -1,4 +1,5 @@
 import ProtectedRoute from "../components/protected/ProtectedRoute";
+import ProtectedAdminRoute from "./ProtectedAdminRoute";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 
 import MainLayout from "../layouts/MainLayout";
@@ -16,54 +17,102 @@ import Admin from "../pages/Admin";
 import SemesterCourses from "../pages/SemesterCourses";
 
 function AppRoutes() {
+
   return (
+
     <BrowserRouter>
+
       <Routes>
+
         <Route element={<MainLayout />}>
-          <Route path="/" element={<Home />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/department" element={<Department />} />
-          <Route path="/semester/:departmentId" element={<Semester />} />
-          <Route path="/course" element={<Course />} />
-          
+
           <Route
-  path="/course/:departmentId/:semesterId"
-  element={<SemesterCourses />}
-/>
+            path="/"
+            element={<Home />}
+          />
+
           <Route
-  path="/coursehub/:departmentId/:courseCode"
-  element={<CourseHub />}
-/>
-         <Route
-  path="/upload"
-  element={
-    <ProtectedRoute>
-      <Upload />
-    </ProtectedRoute>
-  }
-/>
-          <Route path="/discussion" element={<Discussion />} />
+            path="/login"
+            element={<Login />}
+          />
+
           <Route
-  path="/profile"
-  element={
-    <ProtectedRoute>
-      <Profile />
-    </ProtectedRoute>
-  }
-/>
+            path="/register"
+            element={<Register />}
+          />
+
           <Route
-  path="/admin"
-  element={
-    <ProtectedRoute>
-      <Admin />
-    </ProtectedRoute>
-  }
-/>
+            path="/department"
+            element={<Department />}
+          />
+
+          <Route
+            path="/semester/:departmentId"
+            element={<Semester />}
+          />
+
+          <Route
+            path="/course"
+            element={<Course />}
+          />
+
+          <Route
+            path="/course/:departmentId/:semesterId"
+            element={<SemesterCourses />}
+          />
+
+          <Route
+            path="/coursehub/:departmentId/:courseCode"
+            element={<CourseHub />}
+          />
+
+          <Route
+            path="/upload"
+            element={
+              <ProtectedRoute>
+
+                <Upload />
+
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/discussion"
+            element={<Discussion />}
+          />
+
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+
+                <Profile />
+
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Phase 11: Admin Protected Route */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedAdminRoute>
+
+                <Admin />
+
+              </ProtectedAdminRoute>
+            }
+          />
+
         </Route>
+
       </Routes>
+
     </BrowserRouter>
+
   );
+
 }
 
 export default AppRoutes;
