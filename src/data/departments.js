@@ -21,7 +21,7 @@ const departments = [
     id: "bba",
     name: "Business Administration",
     shortName: "BBA",
-    semesters: 8,
+    semesters: 12,
   },
 ];
 

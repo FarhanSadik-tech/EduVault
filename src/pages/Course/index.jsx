@@ -1,13 +1,9 @@
 import { useMemo, useState } from "react";
 
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
+import { collection, getDocs } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase.config";
+
 import {
   Search,
   RotateCcw,
@@ -18,246 +14,273 @@ import {
 } from "lucide-react";
 
 import departments from "../../data/departments";
+
 import courses from "../../data/courses";
+
 import { motion } from "framer-motion";
+
 import useAuth from "../../hooks/useAuth";
+
 import { useNavigate } from "react-router-dom";
 
 function Course() {
+
   const { user } = useAuth();
 
-const navigate = useNavigate();
-
-  console.log("Course Rendered");
+  const navigate = useNavigate();
 
   const [searchData, setSearchData] = useState({
+
     keyword: "",
+
     department: "",
+
     semester: "",
+
     course: "",
+
     type: "",
+
   });
+
   const [results, setResults] = useState([]);
 
-const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-const [searched, setSearched] = useState(false);
+  const [searched, setSearched] = useState(false);
+
   const availableCourses = useMemo(() => {
 
-  if (
-    !searchData.department ||
-    !searchData.semester
-  ) {
-    return [];
-  }
+    if (!searchData.department || !searchData.semester) {
 
-  return (
-    courses[searchData.department]?.[
-      searchData.semester
-    ] || []
-  );
+      return [];
 
-}, [
-  searchData.department,
-  searchData.semester,
-]);
+    }
 
+    return courses[searchData.department]?.[searchData.semester] || [];
+
+  }, [searchData.department, searchData.semester]);
 
   const handleChange = (e) => {
 
-  const { name, value } = e.target;
+    const { name, value } = e.target;
 
-  if (name === "department") {
+    if (name === "department") {
 
-    setSearchData((prev) => ({
-      ...prev,
-      department: value,
+      setSearchData((prev) => {
+
+        return {
+
+          ...prev,
+
+          department: value,
+
+          semester: "",
+
+          course: "",
+
+        };
+
+      });
+
+    } else if (name === "semester") {
+
+      setSearchData((prev) => {
+
+        return {
+
+          ...prev,
+
+          semester: value,
+
+          course: "",
+
+        };
+
+      });
+
+    } else {
+
+      setSearchData((prev) => {
+
+        return {
+
+          ...prev,
+
+          [name]: value,
+
+        };
+
+      });
+
+    }
+
+  };
+
+  const handleReset = () => {
+
+    setSearchData({
+
+      keyword: "",
+
+      department: "",
+
       semester: "",
+
       course: "",
-    }));
 
-  }
+      type: "",
 
-  else if (name === "semester") {
+    });
 
-    setSearchData((prev) => ({
-      ...prev,
-      semester: value,
-      course: "",
-    }));
+    setResults([]);
 
-  }
+    setSearched(false);
 
-  else {
+  };
 
-    setSearchData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const handleSearch = async () => {
 
-  }
+    try {
 
-};
-const handleReset = () => {
+      setLoading(true);
 
-  setSearchData({
-    keyword: "",
-    department: "",
-    semester: "",
-    course: "",
-    type: "",
-  });
+      setSearched(true);
 
-};
-const handleSearch = async () => {
-  alert("Search clicked");
+      // Fetch all resources and apply strict exact matching for courses
+      const snapshot = await getDocs(collection(db, "resources"));
 
-  console.log("Search button clicked");
+      const allResources = snapshot.docs.map((docItem) => {
 
-  try {
+        return {
 
-    setLoading(true);
+          id: docItem.id,
 
-    setSearched(true);
+          ...docItem.data(),
 
-    const constraints = [];
+        };
 
-    if (searchData.department) {
+      });
 
-      constraints.push(
-        where(
-          "department",
-          "==",
-          searchData.department
-        )
-      );
+      const filteredData = allResources.filter((item) => {
 
-    }
+        // Department Matching
+        const itemDept = (item.department || "").trim().toLowerCase();
 
-    if (searchData.semester) {
+        const targetDept = (searchData.department || "").trim().toLowerCase();
 
-      constraints.push(
-        where(
-          "semester",
-          "==",
-          searchData.semester
-        )
-      );
+        const deptMatch = !targetDept || itemDept === targetDept;
 
-    }
+        // Semester Matching
+        const itemSem = (item.semester || "").trim().toLowerCase().replace("-", " ");
 
-    if (searchData.course) {
+        const targetSem = (searchData.semester || "").trim().toLowerCase().replace("-", " ");
 
-      constraints.push(
-        where(
-          "course",
-          "==",
-          searchData.course
-        )
-      );
+        const semMatch = !targetSem || itemSem === targetSem || itemSem.includes(targetSem);
 
-    }
+        // Exact Course Code Matching (Strict Equality === solves CSE111 vs CSE111L issue)
+        const itemCourse = (item.courseCode || item.course || "").trim().toLowerCase().replace(/\s+/g, "");
 
-    if (searchData.type) {
+        const targetCourse = (searchData.course || "").trim().toLowerCase().replace(/\s+/g, "");
 
-      constraints.push(
-        where(
-          "type",
-          "==",
-          searchData.type
-        )
-      );
+        const courseMatch = !targetCourse || itemCourse === targetCourse;
+
+        // Type Matching
+        const itemType = (item.resourceType || item.type || "").trim().toLowerCase();
+
+        const targetType = (searchData.type || "").trim().toLowerCase();
+
+        const typeMatch = !targetType || itemType === targetType || itemType.includes(targetType);
+
+        // Keyword Search (Search by Title or Exact Code)
+        const cleanKeyword = searchData.keyword.trim().toLowerCase().replace(/\s+/g, "");
+
+        const itemTitle = (item.title || "").toLowerCase();
+
+        const itemFileName = (item.fileName || "").toLowerCase();
+
+        const keywordMatch =
+          !cleanKeyword ||
+          itemTitle.includes(cleanKeyword) ||
+          itemFileName.includes(cleanKeyword) ||
+          itemCourse === cleanKeyword ||
+          itemCourse.includes(cleanKeyword);
+
+        return deptMatch && semMatch && courseMatch && typeMatch && keywordMatch;
+
+      });
+
+      setResults(filteredData);
+
+    } catch (error) {
+
+      console.error("Error searching resources:", error);
+
+    } finally {
+
+      setLoading(false);
 
     }
 
-    const q = query(
+  };
 
-      collection(db, "resources"),
+  const handleDownload = (resource) => {
 
-      ...constraints
+    if (!user) {
 
-    );
+      navigate("/login");
 
-    const snapshot = await getDocs(q);
-    console.log("Docs Found:", snapshot.size);
-
-snapshot.forEach((doc) => {
-  console.log(doc.id, doc.data());
-});
-    
-
-    let data = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
-
-    if (searchData.keyword.trim()) {
-
-      data = data.filter((resource) =>
-        resource.title
-          .toLowerCase()
-          .includes(
-            searchData.keyword.toLowerCase()
-          )
-      );
+      return;
 
     }
-    console.log("Filtered Data:", data);
 
-    setResults(data);
-    console.log("Results Length:", data.length);
+    const linkToOpen = resource.driveLink || resource.fileUrl || resource.url;
 
-  } catch (error) {
+    if (linkToOpen) {
 
-    console.error(error);
+      window.open(linkToOpen, "_blank");
 
-  } finally {
+    } else {
 
-    setLoading(false);
+      alert("Download link not available for this resource.");
 
-  }
+    }
 
-};
-const handleDownload = (resource) => {
-
-  if (!user) {
-
-    navigate("/login");
-
-    return;
-
-  }
-
-  window.open(resource.driveLink, "_blank");
-
-};
+  };
 
   return (
 
     <section className="mx-auto max-w-7xl px-6 py-16">
 
+      {/* Title */}
       <div className="text-center">
 
         <h1 className="text-5xl font-bold text-white">
+
           Search Resources
+
         </h1>
 
         <p className="mt-4 text-slate-400">
+
           Search any question, note, solution or lab report.
+
         </p>
 
       </div>
 
+      {/* Search Form Card */}
       <div className="card-style mt-14 rounded-3xl p-8">
 
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
 
-          {/* Search */}
-
+          {/* Keyword Input */}
           <div>
 
             <label className="mb-2 block text-slate-300">
+
               Keyword
+
             </label>
 
             <input
@@ -265,18 +288,19 @@ const handleDownload = (resource) => {
               name="keyword"
               value={searchData.keyword}
               onChange={handleChange}
-              placeholder="Search by title..."
+              placeholder="Search by title or course code..."
               className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
             />
 
           </div>
 
           {/* Department */}
-
           <div>
 
             <label className="mb-2 block text-slate-300">
+
               Department
+
             </label>
 
             <select
@@ -286,31 +310,40 @@ const handleDownload = (resource) => {
               className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-white outline-none focus:border-blue-500"
             >
 
-             <option value="">
-  All Departments
-</option>
+              <option value="">
 
-{departments.map((department) => (
+                All Departments
 
-  <option
-    key={department.id}
-    value={department.id}
-  >
-    {department.shortName}
-  </option>
+              </option>
 
-))} 
+              {departments.map((department) => {
+
+                return (
+
+                  <option
+                    key={department.id}
+                    value={department.id}
+                  >
+
+                    {department.shortName}
+
+                  </option>
+
+                );
+
+              })}
 
             </select>
 
           </div>
 
           {/* Semester */}
-
           <div>
 
             <label className="mb-2 block text-slate-300">
+
               Semester
+
             </label>
 
             <select
@@ -321,81 +354,96 @@ const handleDownload = (resource) => {
             >
 
               <option value="">
+
                 All Semesters
+
               </option>
 
-              {Array.from({ length: 12 }, (_, index) => (
+              {Array.from({ length: 12 }, (_, index) => {
 
-                <option
-                  key={index}
-                  value={`semester-${index + 1}`}
-                >
-                  Semester {index + 1}
-                </option>
+                return (
 
-              ))}
+                  <option
+                    key={index}
+                    value={`semester-${index + 1}`}
+                  >
+
+                    Semester {index + 1}
+
+                  </option>
+
+                );
+
+              })}
 
             </select>
 
           </div>
 
-          {/* Course */}
-
-<div>
-
-  <label className="mb-2 block text-slate-300">
-    Course
-  </label>
-
-  <select
-    name="course"
-    value={searchData.course}
-    onChange={handleChange}
-    disabled={
-      !searchData.department ||
-      !searchData.semester
-    }
-    className="
-    w-full
-    rounded-xl
-    border
-    border-slate-700
-    bg-slate-950
-    px-4
-    py-3
-    text-white
-    outline-none
-    focus:border-blue-500
-    disabled:cursor-not-allowed
-    disabled:opacity-50
-    "
-  >
-
-    <option value="">
-      All Courses
-    </option>
-
-    {availableCourses.map((course) => (
-
-      <option
-        key={course.code}
-        value={course.code}
-      >
-        {course.code} - {course.title}
-      </option>
-
-    ))}
-
-  </select>
-
-</div>
-
-          {/* Type */}
-
+          {/* Course Dropdown */}
           <div>
 
             <label className="mb-2 block text-slate-300">
+
+              Course
+
+            </label>
+
+            <select
+              name="course"
+              value={searchData.course}
+              onChange={handleChange}
+              disabled={!searchData.department || !searchData.semester}
+              className="
+              w-full
+              rounded-xl
+              border
+              border-slate-700
+              bg-slate-950
+              px-4
+              py-3
+              text-white
+              outline-none
+              focus:border-blue-500
+              disabled:cursor-not-allowed
+              disabled:opacity-50
+              "
+            >
+
+              <option value="">
+
+                All Courses
+
+              </option>
+
+              {availableCourses.map((course) => {
+
+                return (
+
+                  <option
+                    key={course.code}
+                    value={course.code}
+                  >
+
+                    {course.code} - {course.title}
+
+                  </option>
+
+                );
+
+              })}
+
+            </select>
+
+          </div>
+
+          {/* Type Dropdown */}
+          <div>
+
+            <label className="mb-2 block text-slate-300">
+
               Resource Type
+
             </label>
 
             <select
@@ -406,23 +454,33 @@ const handleDownload = (resource) => {
             >
 
               <option value="">
+
                 All Types
+
               </option>
 
               <option value="Question">
+
                 Question
+
               </option>
 
               <option value="Note">
+
                 Note
+
               </option>
 
               <option value="Solution">
+
                 Solution
+
               </option>
 
               <option value="Lab Report">
+
                 Lab Report
+
               </option>
 
             </select>
@@ -431,13 +489,18 @@ const handleDownload = (resource) => {
 
         </div>
 
+        {/* Buttons */}
         <div className="mt-8 flex flex-wrap gap-4">
 
           <button
             onClick={handleSearch}
-            className="primary-btn flex items-center gap-2">
+            className="primary-btn flex items-center gap-2"
+          >
+
             <Search size={18} />
+
             Search
+
           </button>
 
           <button
@@ -455,102 +518,155 @@ const handleDownload = (resource) => {
 
       </div>
 
+      {/* Results Display Section */}
       {loading && (
-       <div className="mt-12 text-center">
-    <h2 className="text-2xl text-white">
-      Searching...
-    </h2>
-  </div>
-)}
-{searched && !loading && results.length === 0 && (
-  <div className="mt-12 text-center">
-    <h2 className="text-2xl font-bold text-white">
-      No Resources Found
-    </h2>
 
-    <p className="mt-3 text-slate-400">
-      Try changing your search filters.
-    </p>
-  </div>
-)}
-{!loading && results.length > 0 && (
+        <div className="mt-12 text-center">
 
-  <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <h2 className="text-2xl text-white">
 
-    {results.map((resource) => (
-     <motion.div
-  key={resource.id}
-  initial={{
-    opacity: 0,
-    y: 30,
-  }}
-  whileInView={{
-    opacity: 1,
-    y: 0,
-  }}
-  transition={{
-    duration: 0.4,
-  }}
-  whileHover={{
-    y: -6,
-    scale: 1.02,
-  }}
-  viewport={{
-    once: true,
-  }}
-  className="card-style p-6"
->
+            Searching...
 
-  <FileText
-    size={42}
-    className="text-blue-400"
-  />
+          </h2>
 
-  <h2 className="mt-5 text-2xl font-bold text-white">
-    {resource.title}
-  </h2>
+        </div>
 
-  <div className="mt-4 space-y-2 text-slate-400">
+      )}
 
-    <p>
-      <strong>Course:</strong> {resource.course}
-    </p>
+      {searched && !loading && results.length === 0 && (
 
-    <p>
-      <strong>Type:</strong> {resource.type}
-    </p>
+        <div className="mt-12 text-center">
 
-    <p className="flex items-center gap-2">
-      <Building2 size={16} />
-      {resource.department}
-    </p>
+          <h2 className="text-2xl font-bold text-white">
 
-    <p className="flex items-center gap-2">
-      <Calendar size={16} />
-      {resource.semester}
-    </p>
+            No Resources Found
 
-    <p>
-      <strong>File:</strong> {resource.fileName}
-    </p>
+          </h2>
 
-  </div>
+          <p className="mt-3 text-slate-400">
 
-  <button
-  onClick={() => handleDownload(resource)}
-  className="primary-btn mt-6 flex w-full items-center justify-center gap-2"
->
-  <Download size={18} />
-  Download Resource
-</button>
+            Try changing your search filters or clear keyword search.
 
-</motion.div>
+          </p>
 
-    ))}
+        </div>
 
-  </div>
+      )}
 
-)}
+      {!loading && results.length > 0 && (
+
+        <div className="mt-12 grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+
+          {results.map((resource) => {
+
+            return (
+
+              <motion.div
+                key={resource.id}
+                initial={{
+                  opacity: 0,
+                  y: 30,
+                }}
+                whileInView={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.4,
+                }}
+                whileHover={{
+                  y: -6,
+                  scale: 1.02,
+                }}
+                viewport={{
+                  once: true,
+                }}
+                className="card-style p-6 flex flex-col justify-between"
+              >
+
+                <div>
+
+                  <FileText
+                    size={42}
+                    className="text-blue-400"
+                  />
+
+                  <h2 className="mt-5 text-2xl font-bold text-white">
+
+                    {resource.title}
+
+                  </h2>
+
+                  <div className="mt-4 space-y-2 text-slate-400 text-sm">
+
+                    <p>
+
+                      <strong className="text-slate-200">Course:</strong>{" "}
+
+                      {resource.courseCode || resource.course || "GENERAL"}
+
+                    </p>
+
+                    <p>
+
+                      <strong className="text-slate-200">Type:</strong>{" "}
+
+                      {resource.resourceType || resource.type || "Document"}
+
+                    </p>
+
+                    <p className="flex items-center gap-2">
+
+                      <Building2 size={16} />
+
+                      {resource.department?.toUpperCase()}
+
+                    </p>
+
+                    <p className="flex items-center gap-2">
+
+                      <Calendar size={16} />
+
+                      {resource.semester}
+
+                    </p>
+
+                    <p>
+
+                      <strong className="text-slate-200">File:</strong>{" "}
+
+                      {resource.fileName || "View Link"}
+
+                    </p>
+
+                  </div>
+
+                </div>
+
+                <button
+                  onClick={() => {
+
+                    return handleDownload(resource);
+
+                  }}
+                  className="primary-btn mt-6 flex w-full items-center justify-center gap-2 text-sm"
+                >
+
+                  <Download size={18} />
+
+                  Download Resource
+
+                </button>
+
+              </motion.div>
+
+            );
+
+          })}
+
+        </div>
+
+      )}
 
     </section>
 

@@ -65,15 +65,17 @@ function CourseHub() {
 
           const targetDept = (departmentId || "").trim().toLowerCase();
 
-          const targetCourse = (courseCode || "").trim().toLowerCase();
+          // Remove spaces to handle 'CSE 111' vs 'CSE111'
+          const targetCourse = (courseCode || "").trim().toLowerCase().replace(/\s+/g, "");
 
           const itemDept = (item.department || "").trim().toLowerCase();
 
-          const itemCourse = (item.courseCode || item.course || "").trim().toLowerCase();
+          const itemCourse = (item.courseCode || item.course || "").trim().toLowerCase().replace(/\s+/g, "");
 
           const deptMatch = itemDept === targetDept || !itemDept;
 
-          const courseMatch = itemCourse.includes(targetCourse) || targetCourse.includes(itemCourse);
+          // STRICT EXACT MATCH (Fixes CSE111 vs CSE111L conflict)
+          const courseMatch = itemCourse === targetCourse;
 
           return deptMatch && courseMatch;
 
@@ -92,7 +94,11 @@ function CourseHub() {
           })
           .filter((r) => {
 
-            return r.courseCode?.toLowerCase() === courseCode?.toLowerCase();
+            const ratingCode = (r.courseCode || "").trim().toLowerCase().replace(/\s+/g, "");
+
+            const targetCode = (courseCode || "").trim().toLowerCase().replace(/\s+/g, "");
+
+            return ratingCode === targetCode;
 
           });
 
@@ -111,6 +117,10 @@ function CourseHub() {
             count: currentCourseRatings.length,
 
           });
+
+        } else {
+
+          setCourseRating({ avg: "0.0", count: 0 });
 
         }
 
