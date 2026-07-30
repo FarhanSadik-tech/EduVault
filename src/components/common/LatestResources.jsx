@@ -1,158 +1,87 @@
 import { useEffect, useState } from "react";
+
 import { motion } from "framer-motion";
 
 import {
   collection,
   getDocs,
+  limit,
   orderBy,
   query,
 } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase.config";
+
 import ResourceCard from "./ResourceCard";
-
-
 
 function LatestResources() {
 
-const [resources, setResources] = useState([]);
-const [loading, setLoading] = useState(true);
+  const [resources, setResources] = useState([]);
 
-useEffect(() => {
+  const [loading, setLoading] = useState(true);
 
-  const fetchResources = async () => {
+  useEffect(() => {
 
-    try {
+    const fetchResources = async () => {
 
-      const q = query(
-        collection(db, "resources"),
-        orderBy("createdAt", "desc")
-      );
+      try {
 
-      const snapshot = await getDocs(q);
+        // Query top 6 latest resources ordered by creation date
+        const q = query(
+          collection(db, "resources"),
+          orderBy("createdAt", "desc"),
+          limit(6)
+        );
 
-      const data = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+        let snapshot;
 
-      setResources(data);
+        try {
 
-    } catch (error) {
+          snapshot = await getDocs(q);
 
-      console.error(error);
+        } catch (indexError) {
 
-    } finally {
+          // Fallback if index not built yet
+          snapshot = await getDocs(collection(db, "resources"));
 
-      setLoading(false);
+        }
 
-    }
+        const data = snapshot.docs.map((docItem) => {
 
-  };
+          return {
 
-  fetchResources();
+            id: docItem.id,
 
-}, []);
+            ...docItem.data(),
+
+          };
+
+        });
+
+        // Ensure exactly latest 6 resources are shown
+        const latest6 = data.slice(0, 6);
+
+        setResources(latest6);
+
+      } catch (error) {
+
+        console.error("Error fetching latest 6 resources:", error);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
+    fetchResources();
+
+  }, []);
+
   return (
 
     <motion.section
-
-      initial={{
-        opacity:0,
-        y:40
-      }}
-
-      whileInView={{
-        opacity:1,
-        y:0
-      }}
-
-      transition={{
-        duration:0.7
-      }}
-
-      viewport={{
-        once:true
-      }}
-
-      className="mt-24"
-
-    >
-
-
-
-
-      {/* Heading */}
-
-
-      <div className="text-center">
-
-
-        <h2
-        className="
-        text-4xl
-        font-bold
-        text-white
-        "
-        >
-          📂 Latest Resources
-        </h2>
-
-
-
-        <p
-        className="
-        mx-auto
-        mt-4
-        max-w-2xl
-        text-lg
-        text-slate-400
-        "
-        >
-          Recently uploaded questions, notes, solutions and learning
-          materials from the community.
-        </p>
-
-
-
-      </div>
-
-
-
-
-
-
-      {/* Resource Cards */}
-
-
-      <div
-      className="
-      mt-14
-      grid
-      gap-8
-      md:grid-cols-2
-      xl:grid-cols-4
-      "
-      >
-
-{loading ? (
-
-  <p className="col-span-full text-center text-slate-400">
-    Loading resources...
-  </p>
-
-) : resources.length === 0 ? (
-
-  <p className="col-span-full text-center text-slate-400">
-    No resources uploaded yet.
-  </p>
-
-) : (
-
-  resources.map((resource) => (
-
-    <motion.div
-      key={resource.id}
       initial={{
         opacity: 0,
         y: 40,
@@ -162,33 +91,114 @@ useEffect(() => {
         y: 0,
       }}
       transition={{
-        duration: 0.4,
+        duration: 0.7,
       }}
       viewport={{
         once: true,
       }}
+      className="mt-24"
     >
-      <ResourceCard resource={resource} />
-    </motion.div>
 
-  ))
+      {/* Heading */}
+      <div className="text-center">
 
-)}
-      
+        <h2
+          className="
+          text-4xl
+          font-bold
+          text-white
+          "
+        >
 
+          📂 Latest Resources
 
+        </h2>
+
+        <p
+          className="
+          mx-auto
+          mt-4
+          max-w-2xl
+          text-lg
+          text-slate-400
+          "
+        >
+
+          Recently uploaded questions, notes, solutions and learning
+          materials from the community.
+
+        </p>
 
       </div>
 
+      {/* Resource Cards (Grid layout optimized for 6 items) */}
+      <div
+        className="
+        mt-14
+        grid
+        gap-8
+        md:grid-cols-2
+        lg:grid-cols-3
+        "
+      >
 
+        {loading ? (
 
+          <p className="col-span-full text-center text-slate-400">
+
+            Loading latest 6 resources...
+
+          </p>
+
+        ) : resources.length === 0 ? (
+
+          <p className="col-span-full text-center text-slate-400">
+
+            No resources uploaded yet.
+
+          </p>
+
+        ) : (
+
+          resources.map((resource, index) => {
+
+            return (
+
+              <motion.div
+                key={resource.id}
+                initial={{
+                  opacity: 0,
+                  y: 40,
+                }}
+                whileInView={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.4,
+                  delay: index * 0.1,
+                }}
+                viewport={{
+                  once: true,
+                }}
+              >
+
+                <ResourceCard resource={resource} />
+
+              </motion.div>
+
+            );
+
+          })
+
+        )}
+
+      </div>
 
     </motion.section>
 
   );
 
 }
-
-
 
 export default LatestResources;

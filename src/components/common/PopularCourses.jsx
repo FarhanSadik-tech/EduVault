@@ -1,448 +1,593 @@
+import { useEffect, useState } from "react";
+
 import { motion } from "framer-motion";
 
+import { collection, getDocs } from "firebase/firestore";
 
-const courses = [
-  {
-    id: 1,
-    code: "CSE221",
-    name: "Data Structures",
-    faculty: "Dr. John Doe",
-    rating: 4.8,
-    questions: 25,
-    notes: 40,
-  },
-  {
-    id: 2,
-    code: "CSE315",
-    name: "Database Systems",
-    faculty: "Dr. Sarah Ahmed",
-    rating: 4.9,
-    questions: 30,
-    notes: 55,
-  },
-  {
-    id: 3,
-    code: "CSE321",
-    name: "Operating Systems",
-    faculty: "Prof. Tanvir Hasan",
-    rating: 4.7,
-    questions: 20,
-    notes: 35,
-  },
-  {
-    id: 4,
-    code: "CSE411",
-    name: "Artificial Intelligence",
-    faculty: "Dr. Emily Watson",
-    rating: 4.9,
-    questions: 18,
-    notes: 28,
-  },
-];
+import { db } from "../../firebase/firebase.config";
 
+import { useNavigate } from "react-router-dom";
 
+import { Star, FileText, BookOpen, CheckCircle, FileCode, FlaskConical } from "lucide-react";
 
 function PopularCourses() {
+
+  const navigate = useNavigate();
+
+  const [courses, setCourses] = useState([]);
+
+  const [loading, setLoading] = useState(true);
+
+  // Fetch active uploaded courses dynamically from Firestore
+  useEffect(() => {
+
+    const fetchUploadedPopularCourses = async () => {
+
+      try {
+
+        // 1. Fetch Resources
+        const resourcesSnapshot = await getDocs(collection(db, "resources"));
+
+        const resourceList = resourcesSnapshot.docs.map((docItem) => {
+
+          return docItem.data();
+
+        });
+
+        // 2. Fetch Ratings
+        const ratingsSnapshot = await getDocs(collection(db, "courseRatings"));
+
+        const ratingList = ratingsSnapshot.docs.map((docItem) => {
+
+          return docItem.data();
+
+        });
+
+        // Group resources by courseCode or course
+        const courseMap = {};
+
+        resourceList.forEach((res) => {
+
+          const rawCode = res.courseCode || res.course || "GENERAL";
+
+          const courseCode = rawCode.trim().toUpperCase();
+
+          const dept = (res.department || "cse").toLowerCase();
+
+          const title = res.courseName || res.title || courseCode;
+
+          if (!courseMap[courseCode]) {
+
+            courseMap[courseCode] = {
+
+              code: courseCode,
+
+              name: title,
+
+              departmentId: dept,
+
+              questions: 0,
+
+              notes: 0,
+
+              solutions: 0,
+
+              assignments: 0,
+
+              labReports: 0,
+
+            };
+
+          }
+
+          const resType = (res.resourceType || res.type || "").toLowerCase();
+
+          if (resType.includes("question") || resType.includes("ques")) {
+
+            courseMap[courseCode].questions += 1;
+
+          } else if (resType.includes("note")) {
+
+            courseMap[courseCode].notes += 1;
+
+          } else if (resType.includes("solution") || resType.includes("ans")) {
+
+            courseMap[courseCode].solutions += 1;
+
+          } else if (resType.includes("assignment") || resType.includes("assign")) {
+
+            courseMap[courseCode].assignments += 1;
+
+          } else if (resType.includes("lab") || resType.includes("report")) {
+
+            courseMap[courseCode].labReports += 1;
+
+          } else {
+
+            courseMap[courseCode].notes += 1;
+
+          }
+
+        });
+
+        // Calculate Average Rating per course
+        const processedCourses = Object.values(courseMap).map((cItem) => {
+
+          const courseRatings = ratingList.filter((r) => {
+
+            return r.courseCode === cItem.code;
+
+          });
+
+          let avgRating = 0;
+
+          if (courseRatings.length > 0) {
+
+            const totalStars = courseRatings.reduce((acc, curr) => {
+
+              return acc + Number(curr.ratingStars || 0);
+
+            }, 0);
+
+            avgRating = Number((totalStars / courseRatings.length).toFixed(1));
+
+          } else {
+
+            avgRating = 0.0;
+
+          }
+
+          return {
+
+            ...cItem,
+
+            rating: avgRating,
+
+            ratingCount: courseRatings.length,
+
+          };
+
+        });
+
+        // Sort by Highest Rating & Take First 3 Courses
+        const top3Courses = processedCourses
+          .sort((a, b) => {
+
+            return b.rating - a.rating;
+
+          })
+          .slice(0, 3);
+
+        setCourses(top3Courses);
+
+      } catch (error) {
+
+        console.error("Error fetching uploaded courses for Popular Courses:", error);
+
+      } finally {
+
+        setLoading(false);
+
+      }
+
+    };
+
+    fetchUploadedPopularCourses();
+
+  }, []);
+
+  if (loading) {
+
+    return (
+
+      <div className="mt-20 text-center text-slate-400">
+
+        Loading Top Popular Courses...
+
+      </div>
+
+    );
+
+  }
 
   return (
 
     <motion.section
-
       initial={{
-        opacity:0,
-        y:40
+        opacity: 0,
+        y: 40,
       }}
-
       whileInView={{
-        opacity:1,
-        y:0
+        opacity: 1,
+        y: 0,
       }}
-
       transition={{
-        duration:0.7
+        duration: 0.7,
       }}
-
       viewport={{
-        once:true
+        once: true,
       }}
-
       className="mt-24"
-
     >
 
-
       {/* Heading */}
-
       <div className="text-center">
 
-
         <h2
-        className="
-        text-4xl
-        font-bold
-        text-white
-        "
+          className="
+          text-4xl
+          font-bold
+          text-white
+          "
         >
-          🔥 Popular Courses
+
+          🔥 Top 3 Popular Courses
+
         </h2>
 
-
         <p
-        className="
-        mx-auto
-        mt-4
-        max-w-2xl
-        text-lg
-        text-slate-400
-        "
+          className="
+          mx-auto
+          mt-4
+          max-w-2xl
+          text-lg
+          text-slate-400
+          "
         >
-          Explore top-rated courses with organized questions,
-          notes, solutions and learning resources.
+
+          Explore top 3 highest-rated active courses with real uploaded materials. Open course to rate!
+
         </p>
 
-
       </div>
 
+      {courses.length === 0 ? (
 
+        <div className="card-style mt-12 p-8 text-center text-slate-400">
 
+          No course materials uploaded yet. Upload resources to activate course listings!
 
+        </div>
 
-      {/* Cards */}
+      ) : (
 
-      <div
-      className="
-      mt-14
-      grid
-      gap-8
-      md:grid-cols-2
-      xl:grid-cols-4
-      "
-      >
-
-
-      {
-        courses.map((course,index)=>(
-
-
-          <motion.div
-
-
-          key={course.id}
-
-
-          initial={{
-            opacity:0,
-            y:50
-          }}
-
-
-          whileInView={{
-            opacity:1,
-            y:0
-          }}
-
-
-          transition={{
-            duration:0.5,
-            delay:index*0.15
-          }}
-
-
-          whileHover={{
-            y:-12,
-            scale:1.03
-          }}
-
-
-          viewport={{
-            once:true
-          }}
-
-
+        /* Top 3 Cards Grid Layout */
+        <div
           className="
-          card-style
-          group
-          p-7
+          mt-14
+          grid
+          gap-8
+          md:grid-cols-3
           "
+        >
 
-          >
+          {courses.map((course, index) => {
 
+            return (
 
-
-
-            {/* Badges */}
-
-
-            <div
-            className="
-            flex
-            flex-wrap
-            gap-2
-            "
-            >
-
-
-              <span
-              className="
-              rounded-full
-              border
-              border-blue-500/30
-              bg-blue-500/20
-              px-3
-              py-1
-              text-xs
-              font-semibold
-              text-blue-400
-              "
-              >
-                {course.code}
-              </span>
-
-
-
-              <span
-              className="
-              rounded-full
-              border
-              border-purple-500/30
-              bg-purple-500/20
-              px-3
-              py-1
-              text-xs
-              font-semibold
-              text-purple-400
-              "
-              >
-                CSE Faculty
-              </span>
-
-
-            </div>
-
-
-
-
-
-
-
-            {/* Course Title */}
-
-
-            <h3
-            className="
-            mt-5
-            text-2xl
-            font-bold
-            text-white
-            transition
-            group-hover:text-blue-400
-            "
-            >
-              {course.name}
-            </h3>
-
-
-
-
-
-            {/* Faculty */}
-
-
-            <p
-            className="
-            mt-3
-            text-slate-400
-            "
-            >
-              👨‍🏫 {course.faculty}
-            </p>
-
-
-
-
-
-
-
-            {/* Stats */}
-
-
-            <div
-            className="
-            mt-6
-            space-y-3
-            "
-            >
-
-
-              <div
-              className="
-              flex
-              justify-between
-              rounded-xl
-              bg-slate-800/60
-              px-4
-              py-3
-              "
+              <motion.div
+                key={course.code}
+                initial={{
+                  opacity: 0,
+                  y: 50,
+                }}
+                whileInView={{
+                  opacity: 1,
+                  y: 0,
+                }}
+                transition={{
+                  duration: 0.5,
+                  delay: index * 0.15,
+                }}
+                whileHover={{
+                  y: -12,
+                  scale: 1.02,
+                }}
+                viewport={{
+                  once: true,
+                }}
+                className="
+                card-style
+                group
+                p-7
+                "
               >
 
-                <span className="text-slate-400">
-                  Rating
-                </span>
+                {/* Badges */}
+                <div
+                  className="
+                  flex
+                  flex-wrap
+                  gap-2
+                  "
+                >
+
+                  <span
+                    className="
+                    rounded-full
+                    border
+                    border-blue-500/30
+                    bg-blue-500/20
+                    px-3
+                    py-1
+                    text-xs
+                    font-semibold
+                    text-blue-400
+                    "
+                  >
+
+                    {course.code}
+
+                  </span>
+
+                  <span
+                    className="
+                    rounded-full
+                    border
+                    border-purple-500/30
+                    bg-purple-500/20
+                    px-3
+                    py-1
+                    text-xs
+                    font-semibold
+                    text-purple-400
+                    uppercase
+                    "
+                  >
+
+                    {course.departmentId} Faculty
+
+                  </span>
+
+                </div>
+
+                {/* Course Title */}
+                <h3
+                  className="
+                  mt-5
+                  text-2xl
+                  font-bold
+                  text-white
+                  transition
+                  group-hover:text-blue-400
+                  "
+                >
+
+                  {course.name}
+
+                </h3>
+
+                {/* Stats */}
+                <div
+                  className="
+                  mt-6
+                  space-y-3
+                  "
+                >
+
+                  {/* Rating Display */}
+                  <div
+                    className="
+                    flex
+                    justify-between
+                    items-center
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-3
+                    "
+                  >
 
+                    <span className="text-slate-400 text-sm">
 
-                <span className="font-semibold text-yellow-400">
-                  ⭐ {course.rating}
-                </span>
+                      Course Rating ({course.ratingCount} Ratings)
 
+                    </span>
 
-              </div>
+                    <span className="font-semibold text-yellow-400 text-sm flex items-center gap-1">
 
+                      <Star size={16} className="fill-yellow-400 text-yellow-400" />
+
+                      {course.rating.toFixed(1)}
+
+                    </span>
+
+                  </div>
+
+                  {/* Questions Row */}
+                  <div
+                    className="
+                    flex
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-2.5
+                    text-xs
+                    "
+                  >
 
+                    <span className="text-slate-400 flex items-center gap-1.5">
 
+                      <FileText size={14} className="text-cyan-400" />
 
+                      Questions
 
-              <div
-              className="
-              flex
-              justify-between
-              rounded-xl
-              bg-slate-800/60
-              px-4
-              py-3
-              "
-              >
+                    </span>
 
-                <span className="text-slate-400">
-                  Questions
-                </span>
+                    <span className="text-white font-semibold">
 
+                      {course.questions}
 
-                <span className="text-white">
-                  📄 {course.questions}
-                </span>
+                    </span>
 
+                  </div>
 
-              </div>
+                  {/* Notes Row */}
+                  <div
+                    className="
+                    flex
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-2.5
+                    text-xs
+                    "
+                  >
 
+                    <span className="text-slate-400 flex items-center gap-1.5">
 
+                      <BookOpen size={14} className="text-blue-400" />
 
+                      Notes
 
+                    </span>
 
+                    <span className="text-white font-semibold">
 
-              <div
-              className="
-              flex
-              justify-between
-              rounded-xl
-              bg-slate-800/60
-              px-4
-              py-3
-              "
-              >
+                      {course.notes}
 
-                <span className="text-slate-400">
-                  Notes
-                </span>
+                    </span>
 
+                  </div>
 
-                <span className="text-white">
-                  📝 {course.notes}
-                </span>
+                  {/* Solutions Row */}
+                  <div
+                    className="
+                    flex
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-2.5
+                    text-xs
+                    "
+                  >
 
+                    <span className="text-slate-400 flex items-center gap-1.5">
 
-              </div>
+                      <CheckCircle size={14} className="text-green-400" />
 
+                      Solutions
 
+                    </span>
 
-            </div>
+                    <span className="text-white font-semibold">
 
+                      {course.solutions}
 
+                    </span>
 
+                  </div>
 
+                  {/* Assignments Row */}
+                  <div
+                    className="
+                    flex
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-2.5
+                    text-xs
+                    "
+                  >
 
+                    <span className="text-slate-400 flex items-center gap-1.5">
 
+                      <FileCode size={14} className="text-purple-400" />
 
-            {/* Buttons */}
+                      Assignments
 
+                    </span>
 
-            <div
-            className="
-            mt-8
-            flex
-            gap-3
-            "
-            >
+                    <span className="text-white font-semibold">
 
+                      {course.assignments}
 
-              <motion.button
+                    </span>
 
-              whileHover={{
-                scale:1.08
-              }}
+                  </div>
 
-              whileTap={{
-                scale:0.95
-              }}
+                  {/* Lab Reports Row */}
+                  <div
+                    className="
+                    flex
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-2.5
+                    text-xs
+                    "
+                  >
 
-              className="
-              secondary-btn
-              px-4
-              text-xl
-              "
-              >
+                    <span className="text-slate-400 flex items-center gap-1.5">
 
-                ❤️
+                      <FlaskConical size={14} className="text-red-400" />
 
-              </motion.button>
+                      Lab Reports
 
+                    </span>
 
+                    <span className="text-white font-semibold">
 
+                      {course.labReports}
 
+                    </span>
 
-              <motion.button
+                  </div>
 
-              whileHover={{
-                scale:1.05
-              }}
+                </div>
 
-              whileTap={{
-                scale:0.95
-              }}
+                {/* Open Course Button */}
+                <div
+                  className="
+                  mt-6
+                  flex
+                  gap-3
+                  "
+                >
 
-              className="
-              primary-btn
-              flex-1
-              "
-              >
+                  <motion.button
+                    onClick={() => {
 
-                Open Course →
+                      return navigate(`/coursehub/${course.departmentId}/${course.code.toLowerCase()}`);
 
-              </motion.button>
+                    }}
+                    whileHover={{
+                      scale: 1.05,
+                    }}
+                    whileTap={{
+                      scale: 0.95,
+                    }}
+                    className="
+                    primary-btn
+                    w-full
+                    "
+                  >
 
+                    Open Course & Rate →
 
+                  </motion.button>
 
-            </div>
+                </div>
 
+              </motion.div>
 
+            );
 
+          })}
 
-          </motion.div>
+        </div>
 
-
-        ))
-      }
-
-
-
-      </div>
-
-
+      )}
 
     </motion.section>
 
   );
+
 }
-
-
 
 export default PopularCourses;
