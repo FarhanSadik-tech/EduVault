@@ -77,7 +77,10 @@ function CourseHub() {
           // STRICT EXACT MATCH (Fixes CSE111 vs CSE111L conflict)
           const courseMatch = itemCourse === targetCourse;
 
-          return deptMatch && courseMatch;
+          // 🔥 Step 2 Moderation Requirement: Only show items approved by Admin
+          const isApproved = item.status === "approved";
+
+          return deptMatch && courseMatch && isApproved;
 
         });
 
@@ -330,7 +333,7 @@ function CourseHub() {
 
           <p className="mt-4 text-slate-400">
 
-            No one has uploaded any resources for this course yet.
+            No approved resources available for this course yet.
 
           </p>
 

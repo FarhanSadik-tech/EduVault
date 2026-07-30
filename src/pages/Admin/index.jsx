@@ -33,6 +33,9 @@ import {
   BellRing,
   Send,
   MessageCircle,
+  Clock,
+  CheckCircle,
+  XCircle,
 } from "lucide-react";
 
 function Admin() {
@@ -53,7 +56,8 @@ function Admin() {
 
   const [fetchingData, setFetchingData] = useState(true);
 
-  const [activeTab, setActiveTab] = useState("analytics");
+  // Tab State Default: Pending Review
+  const [activeTab, setActiveTab] = useState("pending");
 
   // Notice Input States
   const [noticeTitle, setNoticeTitle] = useState("");
@@ -67,6 +71,9 @@ function Admin() {
 
   // User Search State
   const [userSearchQuery, setUserSearchQuery] = useState("");
+
+  // Drive Links Input State for Moderation
+  const [pendingDriveLinks, setPendingDriveLinks] = useState({});
 
   // 1. Setup Real-time Listeners for Live Admin Data Sync
   useEffect(() => {
@@ -158,6 +165,19 @@ function Admin() {
 
   }, []);
 
+  // Separate Resources: Pending vs Approved
+  const pendingResources = resources.filter((r) => {
+
+    return r.status === "pending" || !r.status;
+
+  });
+
+  const approvedResources = resources.filter((r) => {
+
+    return r.status === "approved";
+
+  });
+
   // Department Distribution Calculation
   const getDepartmentStats = () => {
 
@@ -189,6 +209,68 @@ function Admin() {
     return nameMatch || emailMatch;
 
   });
+
+  // Admin Action: Approve Resource with Verified Drive Link
+  const handleApproveAndPublish = async (resourceId, defaultLink) => {
+
+    const finalDriveLink = pendingDriveLinks[resourceId] || defaultLink;
+
+    if (!finalDriveLink || !finalDriveLink.trim()) {
+
+      alert("Please enter/paste Google Drive link before approving.");
+
+      return;
+
+    }
+
+    try {
+
+      const resourceRef = doc(db, "resources", resourceId);
+
+      await updateDoc(resourceRef, {
+
+        driveLink: finalDriveLink.trim(),
+
+        status: "approved",
+
+        approvedBy: user.email,
+
+      });
+
+      alert("Resource approved and published!");
+
+      setPendingDriveLinks((prev) => {
+
+        return { ...prev, [resourceId]: "" };
+
+      });
+
+    } catch (error) {
+
+      console.error("Error approving resource:", error);
+
+    }
+
+  };
+
+  // Admin Action: Reject Resource
+  const handleRejectResource = async (resourceId) => {
+
+    if (window.confirm("Are you sure you want to reject and delete this upload?")) {
+
+      try {
+
+        await deleteDoc(doc(db, "resources", resourceId));
+
+      } catch (error) {
+
+        console.error("Error rejecting resource:", error);
+
+      }
+
+    }
+
+  };
 
   // Admin Action: Create Notice
   const handleCreateNotice = async (e) => {
@@ -347,13 +429,13 @@ function Admin() {
   // Select All / Deselect All Resources
   const toggleSelectAllResources = () => {
 
-    if (selectedResources.length === resources.length) {
+    if (selectedResources.length === approvedResources.length) {
 
       setSelectedResources([]);
 
     } else {
 
-      setSelectedResources(resources.map((item) => {
+      setSelectedResources(approvedResources.map((item) => {
 
         return item.id;
 
@@ -384,7 +466,7 @@ function Admin() {
 
   };
 
-  // 🔥 Admin Action: Delete Specific Comment inside a Discussion Post
+  // Admin Action: Delete Specific Comment
   const handleDeleteCommentByAdmin = async (discussionItem, commentToDeleteId) => {
 
     const confirmDelete = window.confirm(
@@ -397,14 +479,12 @@ function Admin() {
 
       const postRef = doc(db, "discussions", discussionItem.id);
 
-      // Filter out the comment to be deleted
       const updatedComments = (discussionItem.comments || []).filter((c) => {
 
         return c.id !== commentToDeleteId;
 
       });
 
-      // Update document in Firestore
       await updateDoc(postRef, {
 
         comments: updatedComments,
@@ -438,17 +518,9 @@ function Admin() {
   return (
 
     <motion.section
-      initial={{
-        opacity: 0,
-        y: 20,
-      }}
-      animate={{
-        opacity: 1,
-        y: 0,
-      }}
-      transition={{
-        duration: 0.5,
-      }}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
       className="mx-auto max-w-7xl px-6 py-12"
     >
 
@@ -459,10 +531,7 @@ function Admin() {
 
           <h1 className="flex items-center gap-3 text-3xl font-extrabold text-white">
 
-            <ShieldAlert
-              size={32}
-              className="text-red-500"
-            />
+            <ShieldAlert size={32} className="text-red-500" />
 
             EduVault Administration Panel
 
@@ -470,7 +539,7 @@ function Admin() {
 
           <p className="mt-1 text-sm text-slate-400">
 
-            Manage platform resources, monitor community posts, and review system status.
+            Manage platform resources, review pending student uploads, and moderate discussions.
 
           </p>
 
@@ -491,14 +560,11 @@ function Admin() {
 
           <div className="flex items-center justify-between">
 
-            <Database
-              size={28}
-              className="text-blue-400"
-            />
+            <Clock size={28} className="text-amber-400" />
 
-            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-400">
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
 
-              Active
+              Pending Review
 
             </span>
 
@@ -506,13 +572,13 @@ function Admin() {
 
           <h2 className="mt-4 text-xs font-medium text-slate-400">
 
-            Total Resources
+            Pending Submissions
 
           </h2>
 
           <p className="mt-1 text-2xl font-bold text-white">
 
-            {resources.length}
+            {pendingResources.length}
 
           </p>
 
@@ -522,10 +588,35 @@ function Admin() {
 
           <div className="flex items-center justify-between">
 
-            <MessageSquare
-              size={28}
-              className="text-cyan-400"
-            />
+            <Database size={28} className="text-blue-400" />
+
+            <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-400">
+
+              Approved
+
+            </span>
+
+          </div>
+
+          <h2 className="mt-4 text-xs font-medium text-slate-400">
+
+            Public Resources
+
+          </h2>
+
+          <p className="mt-1 text-2xl font-bold text-white">
+
+            {approvedResources.length}
+
+          </p>
+
+        </div>
+
+        <div className="card-style p-6">
+
+          <div className="flex items-center justify-between">
+
+            <MessageSquare size={28} className="text-cyan-400" />
 
             <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-400">
 
@@ -553,10 +644,7 @@ function Admin() {
 
           <div className="flex items-center justify-between">
 
-            <Users
-              size={28}
-              className="text-green-400"
-            />
+            <Users size={28} className="text-green-400" />
 
             <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-400">
 
@@ -580,41 +668,48 @@ function Admin() {
 
         </div>
 
-        <div className="card-style p-6">
-
-          <div className="flex items-center justify-between">
-
-            <Flag
-              size={28}
-              className="text-red-400"
-            />
-
-            <span className="rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-0.5 text-xs font-semibold text-red-400">
-
-              Reports
-
-            </span>
-
-          </div>
-
-          <h2 className="mt-4 text-xs font-medium text-slate-400">
-
-            Flagged Items
-
-          </h2>
-
-          <p className="mt-1 text-2xl font-bold text-white">
-
-            {reportsList.length}
-
-          </p>
-
-        </div>
-
       </div>
 
       {/* Navigation Tabs */}
       <div className="mt-10 flex flex-wrap gap-4 border-b border-slate-800 pb-4">
+
+        <button
+          onClick={() => {
+
+            return setActiveTab("pending");
+
+          }}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "pending"
+              ? "bg-amber-600 text-white shadow-lg"
+              : "bg-slate-900 text-slate-400 hover:text-white"
+          }`}
+        >
+
+          <Clock size={16} />
+
+          Pending Review ({pendingResources.length})
+
+        </button>
+
+        <button
+          onClick={() => {
+
+            return setActiveTab("resources");
+
+          }}
+          className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
+            activeTab === "resources"
+              ? "bg-blue-600 text-white shadow-lg"
+              : "bg-slate-900 text-slate-400 hover:text-white"
+          }`}
+        >
+
+          <Database size={16} />
+
+          Manage Public Resources ({approvedResources.length})
+
+        </button>
 
         <button
           onClick={() => {
@@ -646,7 +741,7 @@ function Admin() {
           }`}
         >
 
-          Global Notice Broadcast ({noticesList.length})
+          Global Notice ({noticesList.length})
 
         </button>
 
@@ -687,23 +782,6 @@ function Admin() {
         <button
           onClick={() => {
 
-            return setActiveTab("resources");
-
-          }}
-          className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
-            activeTab === "resources"
-              ? "bg-blue-600 text-white shadow-lg"
-              : "bg-slate-900 text-slate-400 hover:text-white"
-          }`}
-        >
-
-          Manage Resources ({resources.length})
-
-        </button>
-
-        <button
-          onClick={() => {
-
             return setActiveTab("discussions");
 
           }}
@@ -720,6 +798,160 @@ function Admin() {
 
       </div>
 
+      {/* 🔥 Tab 0: Pending Submissions Moderation Queue */}
+      {activeTab === "pending" && (
+
+        <div className="mt-6">
+
+          {pendingResources.length === 0 ? (
+
+            <div className="card-style p-12 text-center text-slate-400">
+
+              <CheckCircle size={48} className="mx-auto text-green-400 mb-3" />
+
+              <h3 className="text-xl font-bold text-white">All Clear!</h3>
+
+              <p className="mt-2 text-sm text-slate-500">No student uploads waiting for moderation review.</p>
+
+            </div>
+
+          ) : (
+
+            <div className="flex flex-col gap-6">
+
+              {pendingResources.map((item) => {
+
+                return (
+
+                  <div
+                    key={item.id}
+                    className="card-style p-6 border border-amber-500/30 bg-slate-900/90 rounded-2xl flex flex-col gap-4"
+                  >
+
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+
+                      <div>
+
+                        <div className="flex items-center gap-2">
+
+                          <span className="rounded bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400 border border-amber-500/20">
+
+                            PENDING REVIEW
+
+                          </span>
+
+                          <span className="text-xs text-slate-400">
+
+                            Submitted by: {item.uploadedBy}
+
+                          </span>
+
+                        </div>
+
+                        <h3 className="mt-2 text-xl font-bold text-white">
+
+                          {item.title}
+
+                        </h3>
+
+                        <p className="mt-1 text-xs text-slate-400">
+
+                          {item.department?.toUpperCase()} • {item.semester} • Course: <strong className="text-slate-200">{item.courseCode || item.course}</strong> • Type: <strong className="text-blue-400">{item.resourceType || item.type}</strong>
+
+                        </p>
+
+                      </div>
+
+                      {item.driveLink && (
+
+                        <a
+                          href={item.driveLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800 px-3 py-2 text-xs text-blue-400 hover:bg-slate-700"
+                        >
+
+                          <ExternalLink size={14} />
+
+                          View Student Shared Link
+
+                        </a>
+
+                      )}
+
+                    </div>
+
+                    {/* Drive Link Verification & Approval Bar */}
+                    <div className="flex flex-col md:flex-row items-center gap-3 pt-2">
+
+                      <input
+                        type="url"
+                        placeholder="Paste verified Admin Google Drive Link here..."
+                        value={pendingDriveLinks[item.id] ?? (item.driveLink || "")}
+                        onChange={(e) => {
+
+                          const val = e.target.value;
+
+                          return setPendingDriveLinks((prev) => {
+
+                            return { ...prev, [item.id]: val };
+
+                          });
+
+                        }}
+                        className="flex-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                      />
+
+                      <div className="flex items-center gap-2 w-full md:w-auto">
+
+                        <button
+                          onClick={() => {
+
+                            return handleApproveAndPublish(item.id, item.driveLink);
+
+                          }}
+                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-green-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-green-500 transition"
+                        >
+
+                          <CheckCircle size={16} />
+
+                          Approve & Publish
+
+                        </button>
+
+                        <button
+                          onClick={() => {
+
+                            return handleRejectResource(item.id);
+
+                          }}
+                          className="flex items-center justify-center gap-1.5 rounded-xl bg-red-600/10 border border-red-500/20 px-4 py-2.5 text-xs font-semibold text-red-400 hover:bg-red-600 hover:text-white transition"
+                        >
+
+                          <XCircle size={16} />
+
+                          Reject
+
+                        </button>
+
+                      </div>
+
+                    </div>
+
+                  </div>
+
+                );
+
+              })}
+
+            </div>
+
+          )}
+
+        </div>
+
+      )}
+
       {/* Tab 1: Analytics */}
       {activeTab === "analytics" && (
 
@@ -727,10 +959,7 @@ function Admin() {
 
           <h3 className="flex items-center gap-2 text-xl font-bold text-white mb-6">
 
-            <PieChart
-              size={22}
-              className="text-blue-400"
-            />
+            <PieChart size={22} className="text-blue-400" />
 
             Department-wise Resource Distribution
 
@@ -764,9 +993,7 @@ function Admin() {
 
                       <div
                         className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-500"
-                        style={{
-                          width: `${percentage}%`,
-                        }}
+                        style={{ width: `${percentage}%` }}
                       />
 
                     </div>
@@ -1067,10 +1294,7 @@ function Admin() {
 
                     return (
 
-                      <tr
-                        key={item.id}
-                        className="transition-colors hover:bg-slate-900/50"
-                      >
+                      <tr key={item.id} className="transition-colors hover:bg-slate-900/50">
 
                         <td className="px-4 py-4 font-semibold text-white flex items-center gap-2">
 
@@ -1120,7 +1344,7 @@ function Admin() {
 
       )}
 
-      {/* Tab 5: Manage Resources */}
+      {/* Tab 5: Manage Approved Resources */}
       {activeTab === "resources" && (
 
         <div className="mt-6">
@@ -1150,11 +1374,11 @@ function Admin() {
 
           )}
 
-          {resources.length === 0 ? (
+          {approvedResources.length === 0 ? (
 
             <div className="card-style p-8 text-center text-slate-400">
 
-              No platform resources found.
+              No published resources found.
 
             </div>
 
@@ -1175,7 +1399,7 @@ function Admin() {
                         className="text-slate-400 hover:text-white"
                       >
 
-                        {selectedResources.length === resources.length ? (
+                        {selectedResources.length === approvedResources.length ? (
 
                           <CheckSquare size={18} className="text-blue-400" />
 
@@ -1203,7 +1427,7 @@ function Admin() {
 
                 <tbody className="divide-y divide-slate-800/60">
 
-                  {resources.map((item) => {
+                  {approvedResources.map((item) => {
 
                     const isSelected = selectedResources.includes(item.id);
 
@@ -1249,7 +1473,7 @@ function Admin() {
 
                         <td className="px-4 py-4 text-xs text-slate-400">
 
-                          {item.department} • {item.course}
+                          {item.department?.toUpperCase()} • {item.courseCode || item.course}
 
                         </td>
 
@@ -1315,7 +1539,7 @@ function Admin() {
 
       )}
 
-      {/* 🔥 Tab 6: Manage Discussions & Comments with Admin Delete Controls */}
+      {/* Tab 6: Manage Discussions */}
       {activeTab === "discussions" && (
 
         <div className="mt-6">
@@ -1377,7 +1601,6 @@ function Admin() {
 
                       </div>
 
-                      {/* Admin Delete Discussion Post Button */}
                       <button
                         onClick={() => {
 
@@ -1394,7 +1617,6 @@ function Admin() {
 
                     </div>
 
-                    {/* 🔥 Comments List Section inside Discussion */}
                     <div className="mt-4 border-t border-slate-800/80 pt-4">
 
                       <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
@@ -1448,7 +1670,6 @@ function Admin() {
 
                                 </div>
 
-                                {/* Delete Comment Action Button */}
                                 <button
                                   onClick={() => {
 

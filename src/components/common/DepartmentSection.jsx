@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 import { useNavigate } from "react-router-dom";
 
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 
 import { db } from "../../firebase/firebase.config";
 
@@ -62,70 +62,84 @@ function DepartmentSection() {
 
   const [departments, setDepartments] = useState(initialDepartments);
 
-  // Fetch Live Resources and Unique Courses Count per Department
+  // Real-time listener for Courses & Resources per Department
   useEffect(() => {
 
-    const fetchDepartmentLiveStats = async () => {
+    let liveCoursesList = [];
 
-      try {
+    let liveResourcesList = [];
 
-        const snapshot = await getDocs(collection(db, "resources"));
+    const updateStats = () => {
 
-        const resourceList = snapshot.docs.map((docItem) => {
+      const updatedDepts = initialDepartments.map((dept) => {
 
-          return docItem.data();
+        // 1. Count Total Live Courses added for this Department
+        const deptCourses = liveCoursesList.filter((c) => {
 
-        });
+          const cDept = (c.departmentId || "").trim().toLowerCase();
 
-        const updatedDepts = initialDepartments.map((dept) => {
+          return cDept === dept.deptKey || cDept.includes(dept.deptKey);
 
-          let resCount = 0;
+        }).length;
 
-          const uniqueCourses = new Set();
+        // 2. Count Total Resources uploaded for this Department
+        const deptResources = liveResourcesList.filter((res) => {
 
-          resourceList.forEach((res) => {
+          const rDept = (res.department || "").trim().toLowerCase();
 
-            const itemDept = (res.department || "").trim().toLowerCase();
+          return rDept === dept.deptKey || rDept.includes(dept.deptKey);
 
-            if (itemDept === dept.deptKey || itemDept.includes(dept.deptKey)) {
+        }).length;
 
-              resCount++;
+        return {
 
-              const courseCode = res.courseCode || res.course;
+          ...dept,
 
-              if (courseCode) {
+          courses: deptCourses,
 
-                uniqueCourses.add(courseCode.trim().toUpperCase());
+          resources: deptResources,
 
-              }
+        };
 
-            }
+      });
 
-          });
-
-          return {
-
-            ...dept,
-
-            resources: resCount,
-
-            courses: uniqueCourses.size,
-
-          };
-
-        });
-
-        setDepartments(updatedDepts);
-
-      } catch (error) {
-
-        console.error("Error fetching Department live stats:", error);
-
-      }
+      setDepartments(updatedDepts);
 
     };
 
-    fetchDepartmentLiveStats();
+    // Listen to Firestore "courses" Collection
+    const unsubCourses = onSnapshot(collection(db, "courses"), (snapshot) => {
+
+      liveCoursesList = snapshot.docs.map((docItem) => {
+
+        return docItem.data();
+
+      });
+
+      updateStats();
+
+    });
+
+    // Listen to Firestore "resources" Collection
+    const unsubResources = onSnapshot(collection(db, "resources"), (snapshot) => {
+
+      liveResourcesList = snapshot.docs.map((docItem) => {
+
+        return docItem.data();
+
+      });
+
+      updateStats();
+
+    });
+
+    return () => {
+
+      unsubCourses();
+
+      unsubResources();
+
+    };
 
   }, []);
 
@@ -222,98 +236,91 @@ function DepartmentSection() {
               card-style
               group
               p-7
+              flex
+              flex-col
+              justify-between
               "
             >
 
-              {/* Icon */}
-              <motion.div
-                whileHover={{
-                  scale: 1.15,
-                  rotate: 5,
-                }}
-                className="
-                flex
-                h-16
-                w-16
-                items-center
-                justify-center
-                rounded-2xl
-                bg-slate-800
-                shadow-lg
-                "
-              >
+              <div>
 
-                {department.icon}
-
-              </motion.div>
-
-              {/* Department Code Badge */}
-              <span
-                className="
-                mt-6
-                inline-block
-                rounded-full
-                border
-                border-blue-500/30
-                bg-blue-500/20
-                px-3
-                py-1
-                text-xs
-                font-semibold
-                text-blue-400
-                "
-              >
-
-                {department.short}
-
-              </span>
-
-              {/* Name */}
-              <h3
-                className="
-                mt-4
-                text-2xl
-                font-bold
-                text-white
-                transition
-                group-hover:text-blue-400
-                "
-              >
-
-                {department.short}
-
-              </h3>
-
-              <p
-                className="
-                mt-2
-                text-sm
-                leading-relaxed
-                text-slate-400
-                "
-              >
-
-                {department.name}
-
-              </p>
-
-              {/* Real-time Stats */}
-              <div
-                className="
-                mt-8
-                space-y-4
-                "
-              >
-
-                <div
+                {/* Icon */}
+                <motion.div
+                  whileHover={{
+                    scale: 1.15,
+                    rotate: 5,
+                  }}
                   className="
                   flex
+                  h-16
+                  w-16
                   items-center
-                  justify-between
-                  rounded-xl
-                  bg-slate-800/60
-                  px-4
-                  py-3
+                  justify-center
+                  rounded-2xl
+                  bg-slate-800
+                  shadow-lg
+                  "
+                >
+
+                  {department.icon}
+
+                </motion.div>
+
+                {/* Department Code Badge */}
+                <span
+                  className="
+                  mt-6
+                  inline-block
+                  rounded-full
+                  border
+                  border-blue-500/30
+                  bg-blue-500/20
+                  px-3
+                  py-1
+                  text-xs
+                  font-semibold
+                  text-blue-400
+                  "
+                >
+
+                  {department.short}
+
+                </span>
+
+                {/* Name */}
+                <h3
+                  className="
+                  mt-4
+                  text-2xl
+                  font-bold
+                  text-white
+                  transition
+                  group-hover:text-blue-400
+                  "
+                >
+
+                  {department.short}
+
+                </h3>
+
+                <p
+                  className="
+                  mt-2
+                  text-sm
+                  leading-relaxed
+                  text-slate-400
+                  "
+                >
+
+                  {department.name}
+
+                </p>
+
+                {/* Real-time Dynamic Stats */}
+                <div
+                  className="
+                  mt-8
+                  space-y-4
                   "
                 >
 
@@ -321,97 +328,111 @@ function DepartmentSection() {
                     className="
                     flex
                     items-center
-                    gap-2
-                    text-slate-300
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-3
                     "
                   >
 
-                    <BookOpen
-                      size={18}
-                      className="text-blue-400"
-                    />
+                    <div
+                      className="
+                      flex
+                      items-center
+                      gap-2
+                      text-slate-300
+                      "
+                    >
 
-                    <span>
+                      <BookOpen
+                        size={18}
+                        className="text-blue-400"
+                      />
 
-                      Courses
+                      <span>
+
+                        Courses
+
+                      </span>
+
+                    </div>
+
+                    <span
+                      className="
+                      rounded-full
+                      bg-slate-700
+                      px-3
+                      py-1
+                      text-sm
+                      text-white
+                      font-semibold
+                      "
+                    >
+
+                      {department.courses}
 
                     </span>
 
                   </div>
-
-                  <span
-                    className="
-                    rounded-full
-                    bg-slate-700
-                    px-3
-                    py-1
-                    text-sm
-                    text-white
-                    font-semibold
-                    "
-                  >
-
-                    {department.courses}
-
-                  </span>
-
-                </div>
-
-                <div
-                  className="
-                  flex
-                  items-center
-                  justify-between
-                  rounded-xl
-                  bg-slate-800/60
-                  px-4
-                  py-3
-                  "
-                >
 
                   <div
                     className="
                     flex
                     items-center
-                    gap-2
-                    text-slate-300
+                    justify-between
+                    rounded-xl
+                    bg-slate-800/60
+                    px-4
+                    py-3
                     "
                   >
 
-                    <FileText
-                      size={18}
-                      className="text-cyan-400"
-                    />
+                    <div
+                      className="
+                      flex
+                      items-center
+                      gap-2
+                      text-slate-300
+                      "
+                    >
 
-                    <span>
+                      <FileText
+                        size={18}
+                        className="text-cyan-400"
+                      />
 
-                      Resources
+                      <span>
+
+                        Resources
+
+                      </span>
+
+                    </div>
+
+                    <span
+                      className="
+                      rounded-full
+                      bg-slate-700
+                      px-3
+                      py-1
+                      text-sm
+                      text-white
+                      font-semibold
+                      "
+                    >
+
+                      {department.resources}
 
                     </span>
 
                   </div>
-
-                  <span
-                    className="
-                    rounded-full
-                    bg-slate-700
-                    px-3
-                    py-1
-                    text-sm
-                    text-white
-                    font-semibold
-                    "
-                  >
-
-                    {department.resources}
-
-                  </span>
 
                 </div>
 
               </div>
 
-              {/* Explore Button Navigation (Updated Route to /semester/) */}
+              {/* Explore Button Navigation */}
               <motion.button
                 onClick={() => {
 
