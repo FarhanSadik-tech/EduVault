@@ -3,8 +3,10 @@ import { UploadCloud, FileText } from "lucide-react";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase/firebase.config";
 import courses from "../../data/courses";
+import useAuth from "../../hooks/useAuth";
 
 function Upload() {
+  const { user } = useAuth();
   const [formData, setFormData] = useState({
   title: "",
   department: "",
@@ -110,6 +112,7 @@ driveLink,
   description,
   fileName: "Google Drive File",
   driveLink,
+  uploadedBy: user.email,
   createdAt: serverTimestamp(),
 });
 

@@ -1,4 +1,6 @@
-import { useContext, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import useAuth from "../../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 import {
   collection,
@@ -11,10 +13,7 @@ import { db } from "../../firebase/firebase.config";
 
 import { motion } from "framer-motion";
 
-import {
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 import {
   BookOpen,
@@ -22,15 +21,13 @@ import {
   Download,
 } from "lucide-react";
 
-import { AuthContext } from "../../context/AuthContext";
 
 function CourseHub() {
+  const { user } = useAuth();
 
   const { departmentId, courseCode } = useParams();
 
   const navigate = useNavigate();
-
-  const { user } = useContext(AuthContext);
 
   const [resources, setResources] = useState([]);
 
@@ -76,24 +73,20 @@ function CourseHub() {
     fetchResources();
 
   }, [departmentId, courseCode]);
+  const handleDownload = (resource) => {
 
-  const handleDownload = () => {
+  if (!user) {
 
-    if (!user) {
+    navigate("/login");
 
-      alert("Please login to download this resource.");
+    return;
 
-      navigate("/login");
+  }
 
-      return;
+  window.open(resource.driveLink, "_blank");
 
-    }
+};
 
-    alert(
-      "Real file download will be available after Firebase Storage integration."
-    );
-
-  };
 
   return (
 
@@ -202,19 +195,7 @@ function CourseHub() {
               </p>
 
              <button
-  onClick={() => {
-
-    if (!resource.driveLink) {
-
-      alert("Download link not available.");
-
-      return;
-
-    }
-
-    window.open(resource.driveLink, "_blank");
-
-  }}
+  onClick={() => handleDownload(resource)}
   className="primary-btn mt-8 flex w-full items-center justify-center gap-2"
 >
   <Download size={18} />

@@ -20,8 +20,13 @@ import {
 import departments from "../../data/departments";
 import courses from "../../data/courses";
 import { motion } from "framer-motion";
+import useAuth from "../../hooks/useAuth";
+import { useNavigate } from "react-router-dom";
 
 function Course() {
+  const { user } = useAuth();
+
+const navigate = useNavigate();
 
   console.log("Course Rendered");
 
@@ -211,6 +216,19 @@ snapshot.forEach((doc) => {
     setLoading(false);
 
   }
+
+};
+const handleDownload = (resource) => {
+
+  if (!user) {
+
+    navigate("/login");
+
+    return;
+
+  }
+
+  window.open(resource.driveLink, "_blank");
 
 };
 
@@ -519,19 +537,7 @@ snapshot.forEach((doc) => {
   </div>
 
   <button
-  onClick={() => {
-
-    if (!resource.driveLink) {
-
-      alert("Download link not available.");
-
-      return;
-
-    }
-
-    window.open(resource.driveLink, "_blank");
-
-  }}
+  onClick={() => handleDownload(resource)}
   className="primary-btn mt-6 flex w-full items-center justify-center gap-2"
 >
   <Download size={18} />
