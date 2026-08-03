@@ -39,9 +39,12 @@ function CourseHub() {
   const [courseRating, setCourseRating] = useState({ avg: "0.0", count: 0 });
   const [starHover, setStarHover] = useState(0);
 
-  // YouTube Playlist States
-  const [playlistUrl, setPlaylistUrl] = useState("");
-  const [isEditingPlaylist, setIsEditingPlaylist] = useState(false);
+  // Dual YouTube Playlist States (Mid & Final)
+  const [midUrl, setMidUrl] = useState("");
+  const [finalUrl, setFinalUrl] = useState("");
+
+  // Edit States for Admin
+  const [editingType, setEditingType] = useState(null); // 'mid' or 'final' or null
   const [tempUrlInput, setTempUrlInput] = useState("");
   const [savingPlaylist, setSavingPlaylist] = useState(false);
 
@@ -50,20 +53,20 @@ function CourseHub() {
       try {
         const codeUpper = (courseCode || "").toUpperCase().replace(/\s+/g, "");
 
-        // 1. Fetch YouTube Playlist Link Safely
+        // 1. Fetch Mid & Final YouTube Playlist Links
         try {
           const playlistDocRef = doc(db, "coursePlaylists", codeUpper);
           const playlistDoc = await getDoc(playlistDocRef);
           if (playlistDoc.exists()) {
             const data = playlistDoc.data();
-            setPlaylistUrl(data?.url || "");
-            setTempUrlInput(data?.url || "");
+            setMidUrl(data?.midUrl || data?.url || "");
+            setFinalUrl(data?.finalUrl || "");
           } else {
-            setPlaylistUrl("");
-            setTempUrlInput("");
+            setMidUrl("");
+            setFinalUrl("");
           }
         } catch (err) {
-          console.error("Error loading playlist:", err);
+          console.error("Error loading playlists:", err);
         }
 
         // 2. Fetch Resources
@@ -118,7 +121,13 @@ function CourseHub() {
     fetchCourseData();
   }, [departmentId, courseCode]);
 
-  // Handle YouTube Playlist Save (Admin Only)
+  // Start Editing (Admin Only)
+  const startEditing = (type) => {
+    setEditingType(type);
+    setTempUrlInput(type === "mid" ? midUrl : finalUrl);
+  };
+
+  // Handle YouTube Playlist Save (Mid or Final)
   const handleSavePlaylist = async () => {
     if (!tempUrlInput.trim()) {
       alert("Please enter a valid YouTube Playlist URL");
@@ -128,16 +137,26 @@ function CourseHub() {
     setSavingPlaylist(true);
     try {
       const codeUpper = (courseCode || "").toUpperCase().replace(/\s+/g, "");
-      await setDoc(doc(db, "coursePlaylists", codeUpper), {
+      const updateData = {
         courseCode: codeUpper,
-        url: tempUrlInput.trim(),
         updatedBy: user?.email || "Admin",
         updatedAt: serverTimestamp(),
-      });
+      };
 
-      setPlaylistUrl(tempUrlInput.trim());
-      setIsEditingPlaylist(false);
-      alert("YouTube Playlist Link updated successfully!");
+      if (editingType === "mid") {
+        updateData.midUrl = tempUrlInput.trim();
+        updateData.finalUrl = finalUrl; // Keep existing final url
+        setMidUrl(tempUrlInput.trim());
+      } else if (editingType === "final") {
+        updateData.finalUrl = tempUrlInput.trim();
+        updateData.midUrl = midUrl; // Keep existing mid url
+        setFinalUrl(tempUrlInput.trim());
+      }
+
+      await setDoc(doc(db, "coursePlaylists", codeUpper), updateData, { merge: true });
+
+      setEditingType(null);
+      alert(`${editingType === "mid" ? "Mid" : "Final"} Playlist Link updated successfully!`);
     } catch (error) {
       console.error("Error saving playlist URL:", error);
       alert("Failed to save playlist link.");
@@ -238,66 +257,129 @@ function CourseHub() {
           </div>
         </div>
 
-        {/* YOUTUBE PLAYLIST SECTION */}
-        <div className="mt-6 flex flex-col items-center justify-center">
-          {!isEditingPlaylist ? (
-            <div className="flex flex-wrap items-center justify-center gap-3">
-              {playlistUrl ? (
-                <a
-                  href={playlistUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-600/20 px-5 py-2.5 text-sm font-semibold text-red-400 shadow-lg transition hover:bg-red-600 hover:text-white"
-                >
-                  <Video size={20} className="text-red-500 hover:text-white" />
-                  <span>Watch Course Playlist</span>
-                  <ExternalLink size={16} />
-                </a>
-              ) : (
-                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-5 py-2 text-xs text-slate-400">
-                  <Video size={18} className="text-slate-500" />
-                  <span>No YouTube Playlist Added Yet</span>
-                </div>
-              )}
-
-              {/* Admin Edit Button */}
-              {isAdmin && (
+        {/* DUAL YOUTUBE PLAYLIST SECTION (MID & FINAL) */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-6">
+          
+          {/* --- MID PLAYLIST BOX --- */}
+          <div className="flex items-center gap-2">
+            {editingType === "mid" ? (
+              <div className="flex w-full max-w-xs items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-xl">
+                <input
+                  type="url"
+                  value={tempUrlInput}
+                  onChange={(e) => setTempUrlInput(e.target.value)}
+                  placeholder="Mid Playlist URL..."
+                  className="w-full bg-transparent px-3 py-1 text-xs text-white outline-none placeholder:text-slate-500"
+                />
                 <button
-                  onClick={() => setIsEditingPlaylist(true)}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
-                  title="Admin: Edit YouTube Playlist Link"
+                  onClick={handleSavePlaylist}
+                  disabled={savingPlaylist}
+                  className="flex items-center gap-1 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
                 >
-                  <Edit3 size={15} />
-                  <span>{playlistUrl ? "Edit Link" : "Add Playlist Link"}</span>
+                  <Save size={14} />
+                  {savingPlaylist ? "Saving..." : "Save"}
                 </button>
-              )}
-            </div>
-          ) : (
-            /* Admin Input Field for Playlist URL */
-            <div className="flex w-full max-w-md items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-xl">
-              <input
-                type="url"
-                value={tempUrlInput}
-                onChange={(e) => setTempUrlInput(e.target.value)}
-                placeholder="Paste YouTube Playlist URL..."
-                className="w-full bg-transparent px-3 py-1.5 text-sm text-white outline-none placeholder:text-slate-500"
-              />
-              <button
-                onClick={handleSavePlaylist}
-                disabled={savingPlaylist}
-                className="flex items-center gap-1 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
-              >
-                <Save size={14} />
-                {savingPlaylist ? "Saving..." : "Save"}
-              </button>
-              <button
-                onClick={() => setIsEditingPlaylist(false)}
-                className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-800 hover:text-white"
-              >
-                <X size={16} />
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={() => setEditingType(null)}
+                  className="rounded-xl p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {midUrl ? (
+                  <a
+                    href={midUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-600/20 px-4 py-2.5 text-sm font-semibold text-red-400 shadow-lg transition hover:bg-red-600 hover:text-white"
+                  >
+                    <Video size={18} className="text-red-500" />
+                    <span>Watch Mid Playlist</span>
+                    <ExternalLink size={15} />
+                  </a>
+                ) : (
+                  <div className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-xs text-slate-400">
+                    <Video size={16} className="text-slate-500" />
+                    <span>No Mid Playlist</span>
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={() => startEditing("mid")}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                    title="Edit Mid Playlist Link"
+                  >
+                    <Edit3 size={14} />
+                    <span>{midUrl ? "Edit Mid" : "Add Mid"}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* --- FINAL PLAYLIST BOX --- */}
+          <div className="flex items-center gap-2">
+            {editingType === "final" ? (
+              <div className="flex w-full max-w-xs items-center gap-2 rounded-2xl border border-slate-700 bg-slate-900 p-2 shadow-xl">
+                <input
+                  type="url"
+                  value={tempUrlInput}
+                  onChange={(e) => setTempUrlInput(e.target.value)}
+                  placeholder="Final Playlist URL..."
+                  className="w-full bg-transparent px-3 py-1 text-xs text-white outline-none placeholder:text-slate-500"
+                />
+                <button
+                  onClick={handleSavePlaylist}
+                  disabled={savingPlaylist}
+                  className="flex items-center gap-1 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+                >
+                  <Save size={14} />
+                  {savingPlaylist ? "Saving..." : "Save"}
+                </button>
+                <button
+                  onClick={() => setEditingType(null)}
+                  className="rounded-xl p-1 text-slate-400 hover:bg-slate-800 hover:text-white"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                {finalUrl ? (
+                  <a
+                    href={finalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-600/20 px-4 py-2.5 text-sm font-semibold text-blue-400 shadow-lg transition hover:bg-blue-600 hover:text-white"
+                  >
+                    <Video size={18} className="text-blue-400" />
+                    <span>Watch Final Playlist</span>
+                    <ExternalLink size={15} />
+                  </a>
+                ) : (
+                  <div className="inline-flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-xs text-slate-400">
+                    <Video size={16} className="text-slate-500" />
+                    <span>No Final Playlist</span>
+                  </div>
+                )}
+
+                {isAdmin && (
+                  <button
+                    onClick={() => startEditing("final")}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-2.5 text-xs font-medium text-slate-300 hover:bg-slate-700 hover:text-white"
+                    title="Edit Final Playlist Link"
+                  >
+                    <Edit3 size={14} />
+                    <span>{finalUrl ? "Edit Final" : "Add Final"}</span>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
         </div>
 
       </div>
