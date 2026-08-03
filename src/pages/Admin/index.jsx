@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
-
 import { motion } from "framer-motion";
-
 import useAuth from "../../hooks/useAuth";
-
 import {
   collection,
   doc,
@@ -12,10 +9,10 @@ import {
   updateDoc,
   serverTimestamp,
   onSnapshot,
+  query,
+  orderBy,
 } from "firebase/firestore";
-
 import { db } from "../../firebase/firebase.config";
-
 import {
   ShieldAlert,
   Database,
@@ -28,7 +25,6 @@ import {
   Square,
   Search,
   UserCheck,
-  Flag,
   CheckCircle2,
   BellRing,
   Send,
@@ -39,21 +35,14 @@ import {
 } from "lucide-react";
 
 function Admin() {
-
   const { user, loading } = useAuth();
 
   const [resources, setResources] = useState([]);
-
   const [discussions, setDiscussions] = useState([]);
-
   const [userList, setUserList] = useState([]);
-
   const [reportsList, setReportsList] = useState([]);
-
   const [noticesList, setNoticesList] = useState([]);
-
   const [totalUsers, setTotalUsers] = useState(0);
-
   const [fetchingData, setFetchingData] = useState(true);
 
   // Tab State Default: Pending Review
@@ -61,9 +50,7 @@ function Admin() {
 
   // Notice Input States
   const [noticeTitle, setNoticeTitle] = useState("");
-
   const [noticeMessage, setNoticeMessage] = useState("");
-
   const [submittingNotice, setSubmittingNotice] = useState(false);
 
   // Bulk Selection States
@@ -77,204 +64,116 @@ function Admin() {
 
   // 1. Setup Real-time Listeners for Live Admin Data Sync
   useEffect(() => {
-
     setFetchingData(true);
 
     // Real-time Resources
     const unsubResources = onSnapshot(collection(db, "resources"), (snapshot) => {
-
-      const list = snapshot.docs.map((d) => {
-
-        return { id: d.id, ...d.data() };
-
-      });
-
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setResources(list);
-
     });
 
     // Real-time Discussions
     const unsubDiscussions = onSnapshot(collection(db, "discussions"), (snapshot) => {
-
-      const list = snapshot.docs.map((d) => {
-
-        return { id: d.id, ...d.data() };
-
-      });
-
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setDiscussions(list);
-
       setFetchingData(false);
-
     });
 
     // Real-time Users
     const unsubUsers = onSnapshot(collection(db, "users"), (snapshot) => {
-
-      const list = snapshot.docs.map((d) => {
-
-        return { id: d.id, ...d.data() };
-
-      });
-
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setUserList(list);
-
       setTotalUsers(list.length);
-
     });
 
     // Real-time Reports
     const unsubReports = onSnapshot(collection(db, "reports"), (snapshot) => {
-
-      const list = snapshot.docs.map((d) => {
-
-        return { id: d.id, ...d.data() };
-
-      });
-
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setReportsList(list);
-
     });
 
-    // Real-time Notices
-    const unsubNotices = onSnapshot(collection(db, "notices"), (snapshot) => {
-
-      const list = snapshot.docs.map((d) => {
-
-        return { id: d.id, ...d.data() };
-
-      });
-
+    // Real-time Notices (Ordered newest first)
+    const noticesQuery = query(collection(db, "notices"), orderBy("createdAt", "desc"));
+    const unsubNotices = onSnapshot(noticesQuery, (snapshot) => {
+      const list = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
       setNoticesList(list);
-
     });
 
     return () => {
-
       unsubResources();
-
       unsubDiscussions();
-
       unsubUsers();
-
       unsubReports();
-
       unsubNotices();
-
     };
-
   }, []);
 
   // Separate Resources: Pending vs Approved
-  const pendingResources = resources.filter((r) => {
+  const pendingResources = resources.filter(
+    (r) => r.status === "pending" || !r.status
+  );
 
-    return r.status === "pending" || !r.status;
-
-  });
-
-  const approvedResources = resources.filter((r) => {
-
-    return r.status === "approved";
-
-  });
+  const approvedResources = resources.filter(
+    (r) => r.status === "approved"
+  );
 
   // Department Distribution Calculation
   const getDepartmentStats = () => {
-
     const deptCounts = {};
-
     resources.forEach((item) => {
-
       const dept = item.department || "General";
-
       deptCounts[dept] = (deptCounts[dept] || 0) + 1;
-
     });
-
     return deptCounts;
-
   };
 
   const deptStats = getDepartmentStats();
 
   // Filtered Users List
   const filteredUsers = userList.filter((u) => {
-
     const searchLower = userSearchQuery.toLowerCase();
-
     const nameMatch = u.name?.toLowerCase().includes(searchLower);
-
     const emailMatch = u.email?.toLowerCase().includes(searchLower);
-
     return nameMatch || emailMatch;
-
   });
 
   // Admin Action: Approve Resource with Verified Drive Link
   const handleApproveAndPublish = async (resourceId, defaultLink) => {
-
     const finalDriveLink = pendingDriveLinks[resourceId] || defaultLink;
 
     if (!finalDriveLink || !finalDriveLink.trim()) {
-
       alert("Please enter/paste Google Drive link before approving.");
-
       return;
-
     }
 
     try {
-
       const resourceRef = doc(db, "resources", resourceId);
-
       await updateDoc(resourceRef, {
-
         driveLink: finalDriveLink.trim(),
-
         status: "approved",
-
         approvedBy: user.email,
-
       });
 
       alert("Resource approved and published!");
-
-      setPendingDriveLinks((prev) => {
-
-        return { ...prev, [resourceId]: "" };
-
-      });
-
+      setPendingDriveLinks((prev) => ({ ...prev, [resourceId]: "" }));
     } catch (error) {
-
       console.error("Error approving resource:", error);
-
     }
-
   };
 
   // Admin Action: Reject Resource
   const handleRejectResource = async (resourceId) => {
-
     if (window.confirm("Are you sure you want to reject and delete this upload?")) {
-
       try {
-
         await deleteDoc(doc(db, "resources", resourceId));
-
       } catch (error) {
-
         console.error("Error rejecting resource:", error);
-
       }
-
     }
-
   };
 
-  // Admin Action: Create Notice
+  // Admin Action: Create Notice (With auto-purge if limit > 3)
   const handleCreateNotice = async (e) => {
-
     e.preventDefault();
 
     if (!noticeTitle.trim() || !noticeMessage.trim()) return;
@@ -282,70 +181,55 @@ function Admin() {
     setSubmittingNotice(true);
 
     try {
+      // 🔥 If 3 or more notices already exist, auto delete the oldest notice
+      if (noticesList.length >= 3) {
+        const oldestNotice = noticesList[noticesList.length - 1];
+        if (oldestNotice && oldestNotice.id) {
+          await deleteDoc(doc(db, "notices", oldestNotice.id));
+        }
+      }
 
       await addDoc(collection(db, "notices"), {
-
         title: noticeTitle.trim(),
-
         message: noticeMessage.trim(),
-
         postedBy: user.email,
-
         createdAt: serverTimestamp(),
-
       });
 
       setNoticeTitle("");
-
       setNoticeMessage("");
-
-      alert("Global Notice Broadcasted Successfully!");
-
+      alert(
+        noticesList.length >= 3
+          ? "Notice published! The oldest notice was automatically removed to keep only 3 active notices."
+          : "Global Notice Broadcasted Successfully!"
+      );
     } catch (error) {
-
       console.error("Error creating notice:", error);
-
     } finally {
-
       setSubmittingNotice(false);
-
     }
-
   };
 
   // Admin Action: Delete Notice
   const handleDeleteNotice = async (noticeId) => {
-
     try {
-
       await deleteDoc(doc(db, "notices", noticeId));
-
     } catch (error) {
-
       console.error("Error deleting notice:", error);
-
     }
-
   };
 
   // Admin Action: Dismiss Report
   const handleDismissReport = async (reportId) => {
-
     try {
-
       await deleteDoc(doc(db, "reports", reportId));
-
     } catch (error) {
-
       console.error("Error dismissing report:", error);
-
     }
-
   };
 
   // Admin Action: Delete Single Resource
   const handleDeleteResource = async (resourceId) => {
-
     const confirmDelete = window.confirm(
       "Admin Action: Are you sure you want to delete this resource?"
     );
@@ -353,30 +237,15 @@ function Admin() {
     if (!confirmDelete) return;
 
     try {
-
       await deleteDoc(doc(db, "resources", resourceId));
-
-      setSelectedResources((prev) => {
-
-        return prev.filter((id) => {
-
-          return id !== resourceId;
-
-        });
-
-      });
-
+      setSelectedResources((prev) => prev.filter((id) => id !== resourceId));
     } catch (error) {
-
       console.error("Error deleting resource:", error);
-
     }
-
   };
 
   // Bulk Delete Resources
   const handleBulkDeleteResources = async () => {
-
     if (selectedResources.length === 0) return;
 
     const confirmDelete = window.confirm(
@@ -386,68 +255,33 @@ function Admin() {
     if (!confirmDelete) return;
 
     try {
-
       for (const id of selectedResources) {
-
         await deleteDoc(doc(db, "resources", id));
-
       }
-
       setSelectedResources([]);
-
     } catch (error) {
-
       console.error("Error in bulk deleting resources:", error);
-
     }
-
   };
 
   // Toggle Resource Checkbox
   const toggleSelectResource = (id) => {
-
-    setSelectedResources((prev) => {
-
-      if (prev.includes(id)) {
-
-        return prev.filter((itemId) => {
-
-          return itemId !== id;
-
-        });
-
-      } else {
-
-        return [...prev, id];
-
-      }
-
-    });
-
+    setSelectedResources((prev) =>
+      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+    );
   };
 
   // Select All / Deselect All Resources
   const toggleSelectAllResources = () => {
-
     if (selectedResources.length === approvedResources.length) {
-
       setSelectedResources([]);
-
     } else {
-
-      setSelectedResources(approvedResources.map((item) => {
-
-        return item.id;
-
-      }));
-
+      setSelectedResources(approvedResources.map((item) => item.id));
     }
-
   };
 
   // Admin Action: Delete Single Discussion Post
   const handleDeleteDiscussion = async (discussionId) => {
-
     const confirmDelete = window.confirm(
       "Admin Action: Are you sure you want to delete this discussion post?"
     );
@@ -455,20 +289,14 @@ function Admin() {
     if (!confirmDelete) return;
 
     try {
-
       await deleteDoc(doc(db, "discussions", discussionId));
-
     } catch (error) {
-
       console.error("Error deleting discussion:", error);
-
     }
-
   };
 
   // Admin Action: Delete Specific Comment
   const handleDeleteCommentByAdmin = async (discussionItem, commentToDeleteId) => {
-
     const confirmDelete = window.confirm(
       "Admin Action: Are you sure you want to delete this comment?"
     );
@@ -476,595 +304,367 @@ function Admin() {
     if (!confirmDelete) return;
 
     try {
-
       const postRef = doc(db, "discussions", discussionItem.id);
-
-      const updatedComments = (discussionItem.comments || []).filter((c) => {
-
-        return c.id !== commentToDeleteId;
-
-      });
+      const updatedComments = (discussionItem.comments || []).filter(
+        (c) => c.id !== commentToDeleteId
+      );
 
       await updateDoc(postRef, {
-
         comments: updatedComments,
-
       });
 
       alert("Comment deleted successfully by Admin!");
-
     } catch (error) {
-
       console.error("Error deleting comment by Admin:", error);
-
     }
-
   };
 
   if (loading || fetchingData) {
-
     return (
-
       <div className="py-20 text-center text-white">
-
         Loading Admin Panel Data...
-
       </div>
-
     );
-
   }
 
   return (
-
     <motion.section
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
       className="mx-auto max-w-7xl px-6 py-12"
     >
-
       {/* Header */}
       <div className="flex flex-col items-start justify-between gap-4 border-b border-slate-800 pb-6 md:flex-row md:items-center">
-
         <div>
-
           <h1 className="flex items-center gap-3 text-3xl font-extrabold text-white">
-
             <ShieldAlert size={32} className="text-red-500" />
-
             EduVault Administration Panel
-
           </h1>
-
           <p className="mt-1 text-sm text-slate-400">
-
             Manage platform resources, review pending student uploads, and moderate discussions.
-
           </p>
-
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs text-slate-400">
-
           Admin: <span className="font-semibold text-white">{user?.email}</span>
-
         </div>
-
       </div>
 
       {/* Summary Cards */}
       <div className="mt-8 grid gap-6 md:grid-cols-4">
-
         <div className="card-style p-6">
-
           <div className="flex items-center justify-between">
-
             <Clock size={28} className="text-amber-400" />
-
             <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400">
-
               Pending Review
-
             </span>
-
           </div>
-
           <h2 className="mt-4 text-xs font-medium text-slate-400">
-
             Pending Submissions
-
           </h2>
-
           <p className="mt-1 text-2xl font-bold text-white">
-
             {pendingResources.length}
-
           </p>
-
         </div>
 
         <div className="card-style p-6">
-
           <div className="flex items-center justify-between">
-
             <Database size={28} className="text-blue-400" />
-
             <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 text-xs font-semibold text-blue-400">
-
               Approved
-
             </span>
-
           </div>
-
           <h2 className="mt-4 text-xs font-medium text-slate-400">
-
             Public Resources
-
           </h2>
-
           <p className="mt-1 text-2xl font-bold text-white">
-
             {approvedResources.length}
-
           </p>
-
         </div>
 
         <div className="card-style p-6">
-
           <div className="flex items-center justify-between">
-
             <MessageSquare size={28} className="text-cyan-400" />
-
             <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2.5 py-0.5 text-xs font-semibold text-cyan-400">
-
               Community
-
             </span>
-
           </div>
-
           <h2 className="mt-4 text-xs font-medium text-slate-400">
-
             Total Discussions
-
           </h2>
-
           <p className="mt-1 text-2xl font-bold text-white">
-
             {discussions.length}
-
           </p>
-
         </div>
 
         <div className="card-style p-6">
-
           <div className="flex items-center justify-between">
-
             <Users size={28} className="text-green-400" />
-
             <span className="rounded-full border border-green-500/20 bg-green-500/10 px-2.5 py-0.5 text-xs font-semibold text-green-400">
-
               Registered
-
             </span>
-
           </div>
-
           <h2 className="mt-4 text-xs font-medium text-slate-400">
-
             Total Users
-
           </h2>
-
           <p className="mt-1 text-2xl font-bold text-white">
-
             {totalUsers}
-
           </p>
-
         </div>
-
       </div>
 
       {/* Navigation Tabs */}
       <div className="mt-10 flex flex-wrap gap-4 border-b border-slate-800 pb-4">
-
         <button
-          onClick={() => {
-
-            return setActiveTab("pending");
-
-          }}
+          onClick={() => setActiveTab("pending")}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "pending"
               ? "bg-amber-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
           <Clock size={16} />
-
           Pending Review ({pendingResources.length})
-
         </button>
 
         <button
-          onClick={() => {
-
-            return setActiveTab("resources");
-
-          }}
+          onClick={() => setActiveTab("resources")}
           className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "resources"
               ? "bg-blue-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
           <Database size={16} />
-
           Manage Public Resources ({approvedResources.length})
-
         </button>
 
         <button
-          onClick={() => {
-
-            return setActiveTab("analytics");
-
-          }}
+          onClick={() => setActiveTab("analytics")}
           className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "analytics"
               ? "bg-blue-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
           Analytics & Distribution
-
         </button>
 
         <button
-          onClick={() => {
-
-            return setActiveTab("notice");
-
-          }}
+          onClick={() => setActiveTab("notice")}
           className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "notice"
               ? "bg-blue-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
-          Global Notice ({noticesList.length})
-
+          Global Notice ({noticesList.slice(0, 3).length}/3)
         </button>
 
         <button
-          onClick={() => {
-
-            return setActiveTab("reports");
-
-          }}
+          onClick={() => setActiveTab("reports")}
           className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "reports"
               ? "bg-blue-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
           Flagged Reports ({reportsList.length})
-
         </button>
 
         <button
-          onClick={() => {
-
-            return setActiveTab("users");
-
-          }}
+          onClick={() => setActiveTab("users")}
           className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "users"
               ? "bg-blue-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
           User Directory ({totalUsers})
-
         </button>
 
         <button
-          onClick={() => {
-
-            return setActiveTab("discussions");
-
-          }}
+          onClick={() => setActiveTab("discussions")}
           className={`rounded-xl px-5 py-2.5 text-sm font-semibold transition-all ${
             activeTab === "discussions"
               ? "bg-blue-600 text-white shadow-lg"
               : "bg-slate-900 text-slate-400 hover:text-white"
           }`}
         >
-
           Manage Discussions ({discussions.length})
-
         </button>
-
       </div>
 
-      {/* 🔥 Tab 0: Pending Submissions Moderation Queue */}
+      {/* Tab 0: Pending Submissions Queue */}
       {activeTab === "pending" && (
-
         <div className="mt-6">
-
           {pendingResources.length === 0 ? (
-
             <div className="card-style p-12 text-center text-slate-400">
-
               <CheckCircle size={48} className="mx-auto text-green-400 mb-3" />
-
               <h3 className="text-xl font-bold text-white">All Clear!</h3>
-
-              <p className="mt-2 text-sm text-slate-500">No student uploads waiting for moderation review.</p>
-
+              <p className="mt-2 text-sm text-slate-500">
+                No student uploads waiting for moderation review.
+              </p>
             </div>
-
           ) : (
-
             <div className="flex flex-col gap-6">
-
-              {pendingResources.map((item) => {
-
-                return (
-
-                  <div
-                    key={item.id}
-                    className="card-style p-6 border border-amber-500/30 bg-slate-900/90 rounded-2xl flex flex-col gap-4"
-                  >
-
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
-
-                      <div>
-
-                        <div className="flex items-center gap-2">
-
-                          <span className="rounded bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400 border border-amber-500/20">
-
-                            PENDING REVIEW
-
-                          </span>
-
-                          <span className="text-xs text-slate-400">
-
-                            Submitted by: {item.uploadedBy}
-
-                          </span>
-
-                        </div>
-
-                        <h3 className="mt-2 text-xl font-bold text-white">
-
-                          {item.title}
-
-                        </h3>
-
-                        <p className="mt-1 text-xs text-slate-400">
-
-                          {item.department?.toUpperCase()} • {item.semester} • Course: <strong className="text-slate-200">{item.courseCode || item.course}</strong> • Type: <strong className="text-blue-400">{item.resourceType || item.type}</strong>
-
-                        </p>
-
+              {pendingResources.map((item) => (
+                <div
+                  key={item.id}
+                  className="card-style p-6 border border-amber-500/30 bg-slate-900/90 rounded-2xl flex flex-col gap-4"
+                >
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded bg-amber-500/10 px-2.5 py-0.5 text-xs font-semibold text-amber-400 border border-amber-500/20">
+                          PENDING REVIEW
+                        </span>
+                        <span className="text-xs text-slate-400">
+                          Submitted by: {item.uploadedBy}
+                        </span>
                       </div>
-
-                      {item.driveLink && (
-
-                        <a
-                          href={item.driveLink}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800 px-3 py-2 text-xs text-blue-400 hover:bg-slate-700"
-                        >
-
-                          <ExternalLink size={14} />
-
-                          View Student Shared Link
-
-                        </a>
-
-                      )}
-
+                      <h3 className="mt-2 text-xl font-bold text-white">
+                        {item.title}
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-400">
+                        {item.department?.toUpperCase()} • {item.semester} • Course:{" "}
+                        <strong className="text-slate-200">
+                          {item.courseCode || item.course}
+                        </strong>{" "}
+                        • Type:{" "}
+                        <strong className="text-blue-400">
+                          {item.resourceType || item.type}
+                        </strong>
+                      </p>
                     </div>
 
-                    {/* Drive Link Verification & Approval Bar */}
-                    <div className="flex flex-col md:flex-row items-center gap-3 pt-2">
-
-                      <input
-                        type="url"
-                        placeholder="Paste verified Admin Google Drive Link here..."
-                        value={pendingDriveLinks[item.id] ?? (item.driveLink || "")}
-                        onChange={(e) => {
-
-                          const val = e.target.value;
-
-                          return setPendingDriveLinks((prev) => {
-
-                            return { ...prev, [item.id]: val };
-
-                          });
-
-                        }}
-                        className="flex-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
-                      />
-
-                      <div className="flex items-center gap-2 w-full md:w-auto">
-
-                        <button
-                          onClick={() => {
-
-                            return handleApproveAndPublish(item.id, item.driveLink);
-
-                          }}
-                          className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-green-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-green-500 transition"
-                        >
-
-                          <CheckCircle size={16} />
-
-                          Approve & Publish
-
-                        </button>
-
-                        <button
-                          onClick={() => {
-
-                            return handleRejectResource(item.id);
-
-                          }}
-                          className="flex items-center justify-center gap-1.5 rounded-xl bg-red-600/10 border border-red-500/20 px-4 py-2.5 text-xs font-semibold text-red-400 hover:bg-red-600 hover:text-white transition"
-                        >
-
-                          <XCircle size={16} />
-
-                          Reject
-
-                        </button>
-
-                      </div>
-
-                    </div>
-
+                    {item.driveLink && (
+                      <a
+                        href={item.driveLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-800 px-3 py-2 text-xs text-blue-400 hover:bg-slate-700"
+                      >
+                        <ExternalLink size={14} />
+                        View Student Shared Link
+                      </a>
+                    )}
                   </div>
 
-                );
+                  {/* Drive Link Verification & Approval Bar */}
+                  <div className="flex flex-col md:flex-row items-center gap-3 pt-2">
+                    <input
+                      type="url"
+                      placeholder="Paste verified Admin Google Drive Link here..."
+                      value={pendingDriveLinks[item.id] ?? (item.driveLink || "")}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPendingDriveLinks((prev) => ({ ...prev, [item.id]: val }));
+                      }}
+                      className="flex-1 w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs text-white focus:outline-none focus:border-blue-500"
+                    />
 
-              })}
+                    <div className="flex items-center gap-2 w-full md:w-auto">
+                      <button
+                        onClick={() => handleApproveAndPublish(item.id, item.driveLink)}
+                        className="flex-1 md:flex-none flex items-center justify-center gap-1.5 rounded-xl bg-green-600 px-5 py-2.5 text-xs font-semibold text-white hover:bg-green-500 transition"
+                      >
+                        <CheckCircle size={16} />
+                        Approve & Publish
+                      </button>
 
+                      <button
+                        onClick={() => handleRejectResource(item.id)}
+                        className="flex items-center justify-center gap-1.5 rounded-xl bg-red-600/10 border border-red-500/20 px-4 py-2.5 text-xs font-semibold text-red-400 hover:bg-red-600 hover:text-white transition"
+                      >
+                        <XCircle size={16} />
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
-
           )}
-
         </div>
-
       )}
 
       {/* Tab 1: Analytics */}
       {activeTab === "analytics" && (
-
         <div className="mt-6 card-style p-8">
-
           <h3 className="flex items-center gap-2 text-xl font-bold text-white mb-6">
-
             <PieChart size={22} className="text-blue-400" />
-
             Department-wise Resource Distribution
-
           </h3>
 
           {Object.keys(deptStats).length === 0 ? (
-
             <p className="text-slate-400">No resources available for analysis.</p>
-
           ) : (
-
             <div className="flex flex-col gap-5 max-w-2xl">
-
               {Object.entries(deptStats).map(([dept, count]) => {
-
                 const percentage = Math.round((count / resources.length) * 100) || 0;
-
                 return (
-
                   <div key={dept}>
-
                     <div className="flex justify-between text-sm font-medium mb-1">
-
                       <span className="text-white">{dept}</span>
-
-                      <span className="text-slate-400">{count} Files ({percentage}%)</span>
-
+                      <span className="text-slate-400">
+                        {count} Files ({percentage}%)
+                      </span>
                     </div>
-
                     <div className="h-3 w-full rounded-full bg-slate-900 overflow-hidden border border-slate-800">
-
                       <div
                         className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 rounded-full transition-all duration-500"
                         style={{ width: `${percentage}%` }}
                       />
-
                     </div>
-
                   </div>
-
                 );
-
               })}
-
             </div>
-
           )}
-
         </div>
-
       )}
 
       {/* Tab 2: Notice */}
       {activeTab === "notice" && (
-
         <div className="mt-6 grid gap-8 md:grid-cols-2">
-
           <div className="card-style p-6">
-
-            <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-4">
-
+            <h3 className="flex items-center gap-2 text-lg font-bold text-white mb-1">
               <BellRing size={20} className="text-blue-400" />
-
               Post New Announcement Notice
-
             </h3>
+            <p className="text-xs text-amber-400 mb-4 font-medium">
+              * Maximum 3 active notices allowed. Adding a 4th notice will automatically replace the oldest one.
+            </p>
 
             <form onSubmit={handleCreateNotice} className="flex flex-col gap-4">
-
               <div>
-
-                <label className="block text-xs text-slate-400 mb-1">Notice Headline Title</label>
-
+                <label className="block text-xs text-slate-400 mb-1">
+                  Notice Headline Title
+                </label>
                 <input
                   type="text"
                   value={noticeTitle}
-                  onChange={(e) => {
-
-                    return setNoticeTitle(e.target.value);
-
-                  }}
+                  onChange={(e) => setNoticeTitle(e.target.value)}
                   placeholder="e.g. Exam Schedule Notice / Server Maintenance"
                   className="w-full rounded-xl border border-slate-800 bg-slate-900 px-4 py-2.5 text-sm text-white focus:border-blue-500 focus:outline-none"
                   required
                 />
-
               </div>
 
               <div>
-
-                <label className="block text-xs text-slate-400 mb-1">Detailed Announcement Message</label>
-
+                <label className="block text-xs text-slate-400 mb-1">
+                  Detailed Announcement Message
+                </label>
                 <textarea
                   value={noticeMessage}
-                  onChange={(e) => {
-
-                    return setNoticeMessage(e.target.value);
-
-                  }}
+                  onChange={(e) => setNoticeMessage(e.target.value)}
                   rows="4"
                   placeholder="Write message for all students..."
                   className="w-full resize-none rounded-xl border border-slate-800 bg-slate-900 p-3 text-sm text-white focus:border-blue-500 focus:outline-none"
                   required
                 />
-
               </div>
 
               <button
@@ -1072,423 +672,237 @@ function Admin() {
                 disabled={submittingNotice}
                 className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 py-3 text-xs font-semibold text-white hover:bg-blue-500 transition disabled:opacity-50"
               >
-
                 <Send size={16} />
-
                 {submittingNotice ? "Broadcasting..." : "Broadcast Notice"}
-
               </button>
-
             </form>
-
           </div>
 
           <div className="card-style p-6">
-
-            <h3 className="text-lg font-bold text-white mb-4">Active Broadcasted Notices</h3>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-bold text-white">Active Broadcasted Notices</h3>
+              <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-3 py-1 text-xs font-semibold text-blue-400">
+                {noticesList.slice(0, 3).length} / 3 Max
+              </span>
+            </div>
 
             {noticesList.length === 0 ? (
-
               <p className="text-xs text-slate-500">No notices currently broadcasted.</p>
-
             ) : (
-
               <div className="flex flex-col gap-3 max-h-[350px] overflow-y-auto">
-
-                {noticesList.map((n) => {
-
-                  return (
-
-                    <div
-                      key={n.id}
-                      className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 flex justify-between items-start gap-2"
-                    >
-
-                      <div>
-
+                {noticesList.slice(0, 3).map((n, idx) => (
+                  <div
+                    key={n.id}
+                    className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-4 flex justify-between items-start gap-2"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase bg-cyan-950 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">
+                          Slot #{idx + 1}
+                        </span>
                         <h4 className="text-sm font-bold text-blue-400">{n.title}</h4>
-
-                        <p className="text-xs text-slate-300 mt-1">{n.message}</p>
-
                       </div>
-
-                      <button
-                        onClick={() => {
-
-                          return handleDeleteNotice(n.id);
-
-                        }}
-                        className="text-red-400 hover:text-red-300 p-1"
-                        title="Delete Notice"
-                      >
-
-                        <Trash2 size={16} />
-
-                      </button>
-
+                      <p className="text-xs text-slate-300 mt-2.5">{n.message}</p>
                     </div>
 
-                  );
-
-                })}
-
+                    <button
+                      onClick={() => handleDeleteNotice(n.id)}
+                      className="text-red-400 hover:text-red-300 p-1"
+                      title="Delete Notice"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                ))}
               </div>
-
             )}
-
           </div>
-
         </div>
-
       )}
 
       {/* Tab 3: Reports */}
       {activeTab === "reports" && (
-
         <div className="mt-6">
-
           {reportsList.length === 0 ? (
-
             <div className="card-style p-8 text-center text-slate-400">
-
               No reported content or broken links reported.
-
             </div>
-
           ) : (
-
             <div className="flex flex-col gap-4">
-
-              {reportsList.map((item) => {
-
-                return (
-
-                  <div
-                    key={item.id}
-                    className="card-style p-6 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4"
-                  >
-
-                    <div>
-
-                      <div className="flex items-center gap-2">
-
-                        <span className="rounded bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400 border border-red-500/20">
-
-                          {item.type || "Resource Report"}
-
-                        </span>
-
-                        <span className="text-xs text-slate-400">
-
-                          Reported by: {item.reportedBy || "Anonymous Student"}
-
-                        </span>
-
-                      </div>
-
-                      <h4 className="mt-2 text-base font-bold text-white">
-
-                        {item.targetTitle || "Untitled Item"}
-
-                      </h4>
-
-                      <p className="mt-1 text-xs text-slate-300 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
-
-                        <span className="font-semibold text-red-400">Reason: </span>
-
-                        {item.reason || "No detailed reason provided."}
-
-                      </p>
-
+              {reportsList.map((item) => (
+                <div
+                  key={item.id}
+                  className="card-style p-6 border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4"
+                >
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-red-500/10 px-2 py-0.5 text-xs font-semibold text-red-400 border border-red-500/20">
+                        {item.type || "Resource Report"}
+                      </span>
+                      <span className="text-xs text-slate-400">
+                        Reported by: {item.reportedBy || "Anonymous Student"}
+                      </span>
                     </div>
-
-                    <div className="flex items-center gap-3">
-
-                      <button
-                        onClick={() => {
-
-                          return handleDismissReport(item.id);
-
-                        }}
-                        className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition"
-                      >
-
-                        <CheckCircle2 size={16} className="text-green-400" />
-
-                        Dismiss Report
-
-                      </button>
-
-                    </div>
-
+                    <h4 className="mt-2 text-base font-bold text-white">
+                      {item.targetTitle || "Untitled Item"}
+                    </h4>
+                    <p className="mt-1 text-xs text-slate-300 bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                      <span className="font-semibold text-red-400">Reason: </span>
+                      {item.reason || "No detailed reason provided."}
+                    </p>
                   </div>
 
-                );
-
-              })}
-
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => handleDismissReport(item.id)}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:text-white hover:bg-slate-800 transition"
+                    >
+                      <CheckCircle2 size={16} className="text-green-400" />
+                      Dismiss Report
+                    </button>
+                  </div>
+                </div>
+              ))}
             </div>
-
           )}
-
         </div>
-
       )}
 
       {/* Tab 4: Users */}
       {activeTab === "users" && (
-
         <div className="mt-6">
-
           <div className="mb-6 flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 px-4 py-3 max-w-md">
-
             <Search size={18} className="text-slate-400" />
-
             <input
               type="text"
               value={userSearchQuery}
-              onChange={(e) => {
-
-                return setUserSearchQuery(e.target.value);
-
-              }}
+              onChange={(e) => setUserSearchQuery(e.target.value)}
               placeholder="Search user by name or email..."
               className="w-full bg-transparent text-sm text-white focus:outline-none"
             />
-
           </div>
 
           {filteredUsers.length === 0 ? (
-
             <div className="card-style p-8 text-center text-slate-400">
-
               No registered users found matching your search.
-
             </div>
-
           ) : (
-
             <div className="card-style overflow-x-auto p-6">
-
               <table className="w-full text-left text-sm text-slate-300">
-
                 <thead className="border-b border-slate-800 text-xs uppercase text-slate-400">
-
                   <tr>
-
                     <th className="px-4 py-3">Full Name</th>
-
                     <th className="px-4 py-3">Email Address</th>
-
                     <th className="px-4 py-3">Role</th>
-
                     <th className="px-4 py-3">User UID</th>
-
                   </tr>
-
                 </thead>
-
                 <tbody className="divide-y divide-slate-800/60">
-
-                  {filteredUsers.map((item) => {
-
-                    return (
-
-                      <tr key={item.id} className="transition-colors hover:bg-slate-900/50">
-
-                        <td className="px-4 py-4 font-semibold text-white flex items-center gap-2">
-
-                          <UserCheck size={16} className="text-blue-400" />
-
-                          {item.name || "N/A"}
-
-                        </td>
-
-                        <td className="px-4 py-4 text-xs text-slate-300">
-
-                          {item.email}
-
-                        </td>
-
-                        <td className="px-4 py-4">
-
-                          <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-400">
-
-                            {item.role || "student"}
-
-                          </span>
-
-                        </td>
-
-                        <td className="px-4 py-4 text-xs text-slate-500 font-mono">
-
-                          {item.uid || item.id}
-
-                        </td>
-
-                      </tr>
-
-                    );
-
-                  })}
-
+                  {filteredUsers.map((item) => (
+                    <tr key={item.id} className="transition-colors hover:bg-slate-900/50">
+                      <td className="px-4 py-4 font-semibold text-white flex items-center gap-2">
+                        <UserCheck size={16} className="text-blue-400" />
+                        {item.name || "N/A"}
+                      </td>
+                      <td className="px-4 py-4 text-xs text-slate-300">
+                        {item.email}
+                      </td>
+                      <td className="px-4 py-4">
+                        <span className="rounded-full border border-blue-500/20 bg-blue-500/10 px-2.5 py-1 text-xs font-medium text-blue-400">
+                          {item.role || "student"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 text-xs text-slate-500 font-mono">
+                        {item.uid || item.id}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
-
               </table>
-
             </div>
-
           )}
-
         </div>
-
       )}
 
       {/* Tab 5: Manage Approved Resources */}
       {activeTab === "resources" && (
-
         <div className="mt-6">
-
           {selectedResources.length > 0 && (
-
             <div className="mb-4 flex items-center justify-between rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-white">
-
               <span className="text-sm font-medium">
-
                 {selectedResources.length} items selected
-
               </span>
-
               <button
                 onClick={handleBulkDeleteResources}
                 className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-xs font-semibold text-white hover:bg-red-500 transition"
               >
-
                 <Trash2 size={16} />
-
                 Delete Selected (Bulk)
-
               </button>
-
             </div>
-
           )}
 
           {approvedResources.length === 0 ? (
-
             <div className="card-style p-8 text-center text-slate-400">
-
               No published resources found.
-
             </div>
-
           ) : (
-
             <div className="card-style overflow-x-auto p-6">
-
               <table className="w-full text-left text-sm text-slate-300">
-
                 <thead className="border-b border-slate-800 text-xs uppercase text-slate-400">
-
                   <tr>
-
                     <th className="px-4 py-3">
-
                       <button
                         onClick={toggleSelectAllResources}
                         className="text-slate-400 hover:text-white"
                       >
-
                         {selectedResources.length === approvedResources.length ? (
-
                           <CheckSquare size={18} className="text-blue-400" />
-
                         ) : (
-
                           <Square size={18} />
-
                         )}
-
                       </button>
-
                     </th>
-
                     <th className="px-4 py-3">Title</th>
-
                     <th className="px-4 py-3">Department / Course</th>
-
                     <th className="px-4 py-3">Uploaded By</th>
-
                     <th className="px-4 py-3 text-right">Actions</th>
-
                   </tr>
-
                 </thead>
-
                 <tbody className="divide-y divide-slate-800/60">
-
                   {approvedResources.map((item) => {
-
                     const isSelected = selectedResources.includes(item.id);
-
                     return (
-
                       <tr
                         key={item.id}
                         className={`transition-colors hover:bg-slate-900/50 ${
                           isSelected ? "bg-slate-900/80" : ""
                         }`}
                       >
-
                         <td className="px-4 py-4">
-
                           <button
-                            onClick={() => {
-
-                              return toggleSelectResource(item.id);
-
-                            }}
+                            onClick={() => toggleSelectResource(item.id)}
                             className="text-slate-400 hover:text-white"
                           >
-
                             {isSelected ? (
-
                               <CheckSquare size={18} className="text-blue-400" />
-
                             ) : (
-
                               <Square size={18} />
-
                             )}
-
                           </button>
-
                         </td>
-
                         <td className="px-4 py-4 font-semibold text-white">
-
                           {item.title}
-
                         </td>
-
                         <td className="px-4 py-4 text-xs text-slate-400">
-
                           {item.department?.toUpperCase()} • {item.courseCode || item.course}
-
                         </td>
-
                         <td className="px-4 py-4 text-xs text-slate-400">
-
                           {item.uploadedBy || "Unknown"}
-
                         </td>
-
                         <td className="px-4 py-4 text-right">
-
                           <div className="flex items-center justify-end gap-3">
-
                             {item.driveLink && (
-
                               <a
                                 href={item.driveLink}
                                 target="_blank"
@@ -1496,226 +910,124 @@ function Admin() {
                                 className="rounded-lg p-2 text-blue-400 transition-colors hover:bg-blue-500/10"
                                 title="View Google Drive Link"
                               >
-
                                 <ExternalLink size={16} />
-
                               </a>
-
                             )}
-
                             <button
-                              onClick={() => {
-
-                                return handleDeleteResource(item.id);
-
-                              }}
+                              onClick={() => handleDeleteResource(item.id)}
                               className="rounded-lg p-2 text-red-400 transition-colors hover:bg-red-500/10"
                               title="Delete Resource"
                             >
-
                               <Trash2 size={16} />
-
                             </button>
-
                           </div>
-
                         </td>
-
                       </tr>
-
                     );
-
                   })}
-
                 </tbody>
-
               </table>
-
             </div>
-
           )}
-
         </div>
-
       )}
 
       {/* Tab 6: Manage Discussions */}
       {activeTab === "discussions" && (
-
         <div className="mt-6">
-
           {discussions.length === 0 ? (
-
             <div className="card-style p-8 text-center text-slate-400">
-
               No discussions found.
-
             </div>
-
           ) : (
-
             <div className="flex flex-col gap-6">
-
               {discussions.map((item) => {
-
                 const commentsList = item.comments || [];
-
                 return (
-
                   <div
                     key={item.id}
                     className="card-style flex flex-col justify-between gap-4 border border-slate-800 p-6"
                   >
-
                     <div className="flex items-start justify-between gap-4">
-
                       <div>
-
                         <div className="flex items-center gap-2">
-
                           <span className="rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-xs font-semibold text-blue-400">
-
                             {item.courseCode || item.category || "GENERAL"}
-
                           </span>
-
                           <span className="text-xs text-slate-400">
-
                             By {item.authorName} ({item.authorEmail})
-
                           </span>
-
                         </div>
-
                         <h3 className="mt-2 text-lg font-bold text-white">
-
                           {item.topic || item.title}
-
                         </h3>
-
                         <p className="mt-1 text-sm text-slate-300 whitespace-pre-line">
-
                           {item.content}
-
                         </p>
-
                       </div>
 
                       <button
-                        onClick={() => {
-
-                          return handleDeleteDiscussion(item.id);
-
-                        }}
+                        onClick={() => handleDeleteDiscussion(item.id)}
                         className="rounded-lg bg-red-600/10 p-2.5 text-red-400 transition-colors hover:bg-red-600 hover:text-white"
                         title="Delete Entire Discussion Post"
                       >
-
                         <Trash2 size={18} />
-
                       </button>
-
                     </div>
 
                     <div className="mt-4 border-t border-slate-800/80 pt-4">
-
                       <h4 className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-
                         <MessageCircle size={14} className="text-blue-400" />
-
                         Comments ({commentsList.length})
-
                       </h4>
 
                       {commentsList.length === 0 ? (
-
-                        <p className="text-xs text-slate-500 italic">No comments posted on this discussion.</p>
-
+                        <p className="text-xs text-slate-500 italic">
+                          No comments posted on this discussion.
+                        </p>
                       ) : (
-
                         <div className="space-y-2">
-
-                          {commentsList.map((comment) => {
-
-                            return (
-
-                              <div
-                                key={comment.id}
-                                className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-900/90 p-3 text-xs"
-                              >
-
-                                <div>
-
-                                  <div className="flex items-center gap-2">
-
-                                    <span className="font-semibold text-blue-400">
-
-                                      {comment.authorName}
-
-                                    </span>
-
-                                    <span className="text-[10px] text-slate-500">
-
-                                      ({comment.authorEmail})
-
-                                    </span>
-
-                                  </div>
-
-                                  <p className="mt-1 text-slate-200">
-
-                                    {comment.text}
-
-                                  </p>
-
+                          {commentsList.map((comment) => (
+                            <div
+                              key={comment.id}
+                              className="flex items-center justify-between rounded-xl border border-slate-800/80 bg-slate-900/90 p-3 text-xs"
+                            >
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-semibold text-blue-400">
+                                    {comment.authorName}
+                                  </span>
+                                  <span className="text-[10px] text-slate-500">
+                                    ({comment.authorEmail})
+                                  </span>
                                 </div>
-
-                                <button
-                                  onClick={() => {
-
-                                    return handleDeleteCommentByAdmin(item, comment.id);
-
-                                  }}
-                                  className="flex items-center gap-1 rounded-lg bg-red-600/10 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 transition-colors hover:bg-red-600 hover:text-white ml-4 shrink-0"
-                                  title="Delete this comment"
-                                >
-
-                                  <Trash2 size={13} />
-
-                                  Delete Comment
-
-                                </button>
-
+                                <p className="mt-1 text-slate-200">
+                                  {comment.text}
+                                </p>
                               </div>
 
-                            );
-
-                          })}
-
+                              <button
+                                onClick={() => handleDeleteCommentByAdmin(item, comment.id)}
+                                className="flex items-center gap-1 rounded-lg bg-red-600/10 px-2.5 py-1.5 text-[11px] font-semibold text-red-400 transition-colors hover:bg-red-600 hover:text-white ml-4 shrink-0"
+                                title="Delete this comment"
+                              >
+                                <Trash2 size={13} />
+                                Delete Comment
+                              </button>
+                            </div>
+                          ))}
                         </div>
-
                       )}
-
                     </div>
-
                   </div>
-
                 );
-
               })}
-
             </div>
-
           )}
-
         </div>
-
       )}
-
     </motion.section>
-
   );
-
 }
 
 export default Admin;
