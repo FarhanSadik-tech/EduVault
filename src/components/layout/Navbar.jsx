@@ -12,8 +12,8 @@ import {
   Upload,
 } from "lucide-react";
 
-// আপনার নতুন লোগো ইমপোর্ট করতে চাইলে নিচের লাইনটি আনকমেন্ট করুন:
-// import logo from "../../assets/logo.png";
+// 🔥 Assets ফোল্ডার থেকে লোগো ইমপোর্ট করা হলো
+import logo from "../../assets/logo2.png";
 
 function Navbar() {
   const { user, logOut } = useContext(AuthContext);
@@ -53,23 +53,21 @@ function Navbar() {
       transition={{ duration: 0.6 }}
       className="sticky top-0 z-50 border-b border-slate-800/70 bg-slate-950/70 backdrop-blur-xl shadow-lg"
     >
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
+      <div className="mx-auto flex max-w-[1400px] items-center justify-between px-8 py-3.5">
         
-        {/* Logo */}
-        <NavLink
-          to="/"
-          className="flex items-center gap-3 text-3xl font-extrabold tracking-wide transition hover:scale-105"
-        >
-          {/* যদি ইমেজ লোগো ব্যবহার করতে চান: 
-          <img src={logo} alt="EduVault Logo" className="h-9 w-auto object-contain" /> */}
-          
-          <div>
-            <span className="text-white">Edu</span>
-            <span className="bg-gradient-to-r from-blue-400 to-cyan-400 bg-clip-text text-transparent">
-              Vault
-            </span>
-          </div>
-        </NavLink>
+      
+        {/* Logo Section */}
+<NavLink
+  to="/"
+  className="flex items-center gap-3 transition duration-300 hover:scale-105"
+>
+  {/* 🔥 Logo Image explicitly zoomed and enlarged */}
+  <img
+    src={logo}
+    alt="EduVaultBD Logo"
+    className="h-24 md:h-28 w-auto max-w-none object-contain scale-125 my-1"
+  />
+</NavLink>
 
         {/* Desktop Navigation Links */}
         <nav className="hidden items-center gap-8 md:flex">

@@ -1,6 +1,5 @@
 @import "tailwindcss";
 
-
 /* =========================
    Global Theme
 ========================= */
@@ -10,8 +9,8 @@ body {
   color: white;
   font-family: Inter, system-ui, sans-serif;
   scroll-behavior: smooth;
+  overflow-x: hidden; /* সাইড স্ক্রলবার রোধ করতে */
 }
-
 
 /* =========================
    Smooth Rendering
@@ -21,22 +20,17 @@ body {
   box-sizing: border-box;
 }
 
-
 html {
   scroll-behavior: smooth;
 }
 
-
-
 /* =========================
-   Reusable Buttons
+   Reusable Buttons & Cards
 ========================= */
 
 @layer components {
 
-
   .primary-btn {
-
     @apply
     rounded-xl
     bg-gradient-to-r
@@ -52,13 +46,9 @@ html {
     hover:scale-105
     hover:shadow-blue-500/40
     active:scale-95;
-
   }
 
-
-
   .secondary-btn {
-
     @apply
     rounded-xl
     border
@@ -73,13 +63,10 @@ html {
     hover:border-blue-500
     hover:bg-blue-500/10
     active:scale-95;
-
   }
 
-
-
+  /* 🔥 Card style updated with subtle scale and smooth overflow transition */
   .card-style {
-
     @apply
     rounded-3xl
     border
@@ -88,49 +75,33 @@ html {
     backdrop-blur
     transition-all
     duration-300
-    hover:-translate-y-3
-    hover:scale-[1.03]
+    hover:-translate-y-2
+    hover:scale-[1.015]
     hover:border-blue-500
     hover:shadow-2xl
     hover:shadow-blue-500/20;
-
+    will-change: transform;
   }
 
-
-
 }
-
-
 
 /* =========================
    Custom Scrollbar
 ========================= */
 
-
 ::-webkit-scrollbar {
-
   width: 8px;
-
 }
-
 
 ::-webkit-scrollbar-track {
-
   background: #020617;
-
 }
-
 
 ::-webkit-scrollbar-thumb {
-
   background: #2563eb;
   border-radius: 10px;
-
 }
 
-
 ::-webkit-scrollbar-thumb:hover {
-
   background: #1d4ed8;
-
 }
