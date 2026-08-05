@@ -1,3 +1,36 @@
+EduVault Project Introduction
+
+EduVault is a modern academic resource sharing web application designed for university students in Bangladesh. The platform provides a centralized place where students can easily upload, search, and access study materials based on their department, semester, and course.
+
+🚀 Key Features
+📚 Department-wise, Semester-wise and Course-wise resource organization
+🔍 Smart resource search with multiple filters
+📄 Upload academic resources (Notes, Questions, Solutions, Lab Reports)
+☁️ Google Drive integration for secure file sharing
+👤 Firebase Authentication (Email & Password)
+🔒 Protected download system (Login required)
+👨‍🎓 Personal user profile with upload statistics
+📥 One-click resource download
+🌙 Modern responsive UI with dark theme
+⚡ Fast performance using React + Vite
+🔥 Firebase Firestore for real-time database management
+🎨 Beautiful animations using Framer Motion
+
+🛠️ Technology Stack
+React.js
+Vite
+Tailwind CSS
+Firebase Authentication
+Cloud Firestore
+Google Drive Integration
+Framer Motion
+Lucide React Icons
+
+LIVE View : https://eduvaultbd.netlify.app/
+
+EduVault aims to become a complete digital academic platform where students can easily share knowledge, collaborate, and access quality learning resources from one place.
+
+
 # React + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
