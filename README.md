@@ -2,8 +2,8 @@ EduVault Project Introduction
 
 EduVault is a modern academic resource sharing web application designed for university students in Bangladesh. The platform provides a centralized place where students can easily upload, search, and access study materials based on their department, semester, and course.
 
-🚀 Key Features
-📚 Department-wise, Semester-wise and Course-wise resource organization
+- Key Features
+- Department-wise, Semester-wise and Course-wise resource organization
 🔍 Smart resource search with multiple filters
 📄 Upload academic resources (Notes, Questions, Solutions, Lab Reports)
 ☁️ Google Drive integration for secure file sharing
