@@ -20,27 +20,28 @@ function HeroSection() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
 
-  // 🔥 Team Members Config - আপনার টিম মেম্বারদের ছবি ও নাম এখানে দিন
+  // 🔥 Team Members Config - Cloudinary Direct Image Links & Fallback
   const teamMembers = [
     {
       name: "Farhan Sadik Kawsar",
       role: "Lead Developer",
-      image: "https://i.ibb.co.com/G41t5pPs/pic1.png", // আপনার ছবির লিংক বসান
+      // Cloudinary-তে আপলোড করা ডাইরেক্ট URL লিংক এখানে বসাবেন (যেমন: https://res.cloudinary.com/your_cloud/image/upload/v12345/pic1.jpg)
+      image: "https://res.cloudinary.com/lqlwnjie/image/upload/v1785930847/pic1_ujpifp.png",
     },
     {
       name: "Tamim Siddique",
       role: "Developer",
-      image: "https://i.ibb.co.com/5Wb8WPsZ/Picsart-26-08-03-19-55-37-627.jpg",
+      image: "https://res.cloudinary.com/lqlwnjie/image/upload/v1785929615/Picsart_26-08-03_19-55-37-627_avy2zr.jpg",
     },
     {
       name: "Kausar Mahmud",
       role: "Developer",
-      image: "https://i.ibb.co.com/PsvSsXrX/pic4.jpg",
+      image: "https://res.cloudinary.com/lqlwnjie/image/upload/v1785930847/pic4_bi2mh7.jpg",
     },
     {
       name: "Md. Jahid Hasan",
       role: "Developer",
-      image: "https://i.ibb.co.com/v6wqQYn4/pic3.jpg",
+      image: "https://res.cloudinary.com/lqlwnjie/image/upload/v1785930847/pic3_uoendx.jpg",
     },
   ];
 
@@ -242,7 +243,7 @@ function HeroSection() {
 
             <div className="my-6 border-t border-slate-700/80" />
 
-            {/* 🔥 NEW TEAM MEMBERS SECTION (4 Circle Photos) */}
+            {/* TEAM MEMBERS SECTION */}
             <div className="mt-4">
               <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wider text-slate-400 uppercase">
                 <Code2 size={16} className="text-blue-400" />
@@ -252,12 +253,21 @@ function HeroSection() {
               <div className="mt-4 grid grid-cols-4 gap-3 text-center">
                 {teamMembers.map((member, index) => (
                   <div key={index} className="flex flex-col items-center">
-                    <div className="h-14 w-14 overflow-hidden rounded-full border-2 border-blue-500/40 bg-slate-800 shadow-md transition hover:scale-105 hover:border-blue-400">
+                    <div className="relative h-14 w-14 overflow-hidden rounded-full border-2 border-blue-500/40 bg-slate-800 shadow-md transition hover:scale-105 hover:border-blue-400">
                       <img
                         src={member.image}
                         alt={member.name}
+                        referrerPolicy="no-referrer"
                         className="h-full w-full object-cover"
+                        onError={(e) => {
+                          // ImgBB বা লিংক ফেইল হলে চমৎকার ব্যাকআপ কালার ও নাম দেখাবে
+                          e.target.style.display = "none";
+                          e.target.nextSibling.style.display = "flex";
+                        }}
                       />
+                      <div className="hidden h-full w-full items-center justify-center bg-blue-900/60 text-xs font-bold text-cyan-300">
+                        {member.name.charAt(0)}
+                      </div>
                     </div>
                     <p className="mt-2 text-xs font-medium text-slate-200 line-clamp-1">
                       {member.name}
